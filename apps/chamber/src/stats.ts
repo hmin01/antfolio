@@ -8,6 +8,8 @@ export interface SimulationStats {
     dailyVol: number | null;
     /** 하루 (고가 - 저가) / 시가 의 평균 */
     avgDailyRange: number;
+    /** 1시간 (고가 - 저가) / 시가 의 중앙값과 상위 10% 값. 시장이 얼마나 빠르게 느껴지는지 */
+    hourlyRange: { median: number; p90: number };
     maxDrawdown: number;
     regimeShare: Record<Regime, number>;
     /** 국면이 한 번 시작되면 이어지는 평균 시간 */
@@ -23,6 +25,10 @@ export function computeStats({ prices, regimes }: SimulationResult): SimulationS
             ? null
             : Math.sqrt(dailyReturns.reduce((sum, r) => sum + (r - mean) ** 2, 0) / (dailyReturns.length - 1));
     const avgDailyRange = days.reduce((sum, d) => sum + (d.high - d.low) / d.open, 0) / days.length;
+    const hourlyRanges = toCandles(prices, TICKS_PER_HOUR, 0)
+        .map((h) => (h.high - h.low) / h.open)
+        .toSorted((a, b) => a - b);
+    const quantile = (q: number) => hourlyRanges[Math.floor(q * (hourlyRanges.length - 1))] ?? 0;
 
     let peak = prices[0]!;
     let maxDrawdown = 0;
@@ -50,6 +56,7 @@ export function computeStats({ prices, regimes }: SimulationResult): SimulationS
         totalReturn: prices[prices.length - 1]! / prices[0]! - 1,
         dailyVol,
         avgDailyRange,
+        hourlyRange: { median: quantile(0.5), p90: quantile(0.9) },
         maxDrawdown,
         regimeShare,
         regimeMeanHours,

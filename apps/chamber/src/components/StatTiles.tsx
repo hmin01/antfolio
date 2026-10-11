@@ -1,6 +1,6 @@
 import { REGIMES } from '@gaemigul/queen';
 
-import { percent, signedPercent } from '../format.ts';
+import { formatHours, percent, signedPercent } from '../format.ts';
 import { REGIME_COLORS, REGIME_LABELS } from '../regimes.ts';
 import type { SimulationStats } from '../stats.ts';
 
@@ -17,12 +17,17 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
 export function StatTiles({ stats }: { stats: SimulationStats }) {
     return (
         <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 <Tile label="전체 수익률" value={signedPercent(stats.totalReturn)} />
                 <Tile
                     label="일간 변동성"
                     value={stats.dailyVol === null ? '—' : percent(stats.dailyVol)}
-                    hint={stats.dailyVol === null ? '2일 이상부터 계산' : '목표 3~8%'}
+                    hint={stats.dailyVol === null ? '2일 이상부터 계산' : undefined}
+                />
+                <Tile
+                    label="1시간 고저폭"
+                    value={percent(stats.hourlyRange.median)}
+                    hint={`바쁜 시간 ${percent(stats.hourlyRange.p90)}`}
                 />
                 <Tile label="평균 일중 고저폭" value={percent(stats.avgDailyRange)} />
                 <Tile label="최대 낙폭" value={`-${percent(stats.maxDrawdown)}`} />
@@ -43,7 +48,7 @@ export function StatTiles({ stats }: { stats: SimulationStats }) {
                                 {percent(stats.regimeShare[regime], 0)}
                             </div>
                             <div className="mt-0.5 text-xs text-zinc-500">
-                                평균 {hours === null ? '—' : `${hours.toFixed(1)}시간`} 지속
+                                평균 {hours === null ? '—' : formatHours(hours)} 지속
                             </div>
                         </div>
                     );

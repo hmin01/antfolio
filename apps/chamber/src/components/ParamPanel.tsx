@@ -9,8 +9,10 @@ import {
     type RegimeParams,
 } from '@gaemigul/queen';
 
-import { percent, signedPercent } from '../format.ts';
+import { formatDays, formatHours, percent, signedPercent } from '../format.ts';
+import { PRESETS } from '../presets.ts';
 import { REGIME_COLORS, REGIME_LABELS } from '../regimes.ts';
+import { roundParams, versionSnippet } from '../versionSnippet.ts';
 import { Slider } from './Slider.tsx';
 
 interface ParamPanelProps {
@@ -27,27 +29,44 @@ function Section({ title, children }: { title: ReactNode; children: ReactNode })
     );
 }
 
-/** params.ts의 PARAM_VERSIONS 맨 뒤에 그대로 붙여 넣을 수 있는 코드 */
-function versionSnippet(id: string, params: EngineParams): string {
-    const body = JSON.stringify(params, null, 4)
-        .replace(/"(\w+)":/g, '$1:')
-        .replace(/\n/g, '\n        ');
-    return `    {\n        id: '${id}',\n        params: ${body},\n    },\n`;
-}
+const sameParams = (a: EngineParams, b: EngineParams) => JSON.stringify(a) === JSON.stringify(b);
 
 export function ParamPanel({ params, onChange }: ParamPanelProps) {
-    const [copied, setCopied] = useState<string | null>(null);
-    const changed = JSON.stringify(params) !== JSON.stringify(LATEST_VERSION.params);
+    const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+    const [applying, setApplying] = useState(false);
+    const changed = !sameParams(params, LATEST_VERSION.params);
     const nextId = `v${PARAM_VERSIONS.length + 1}`;
+
+    const applyToGame = async () => {
+        if (!window.confirm(`지금 설정을 ${nextId}로 게임에 적용할까요? 한 번 추가한 버전은 지울 수 없어요.`)) return;
+        setApplying(true);
+        try {
+            const res = await fetch('/__queen/apply', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ params: roundParams(params) }),
+            });
+            const body = (await res.json()) as { id?: string; error?: string };
+            if (!res.ok) throw new Error(body.error);
+            // 코드에는 반올림한 값이 들어가므로 화면 값도 맞춰 둔다.
+            onChange(roundParams(params));
+            setNotice({ ok: true, text: `${body.id}를 게임에 적용했어요. 1분 뒤부터 새 설정으로 움직여요.` });
+        } catch (error) {
+            setNotice({ ok: false, text: `적용하지 못했어요: ${error instanceof Error ? error.message : error}` });
+        } finally {
+            setApplying(false);
+        }
+    };
 
     const copy = async () => {
         try {
             await navigator.clipboard.writeText(versionSnippet(nextId, params));
-            setCopied(
-                `${nextId}로 복사했어요. packages/queen/src/params.ts의 PARAM_VERSIONS 맨 뒤에 붙여 넣으면, 게임이 다음에 열릴 때 1분 뒤부터 적용돼요.`,
-            );
+            setNotice({
+                ok: true,
+                text: `${nextId} 코드를 복사했어요. packages/queen/src/params.ts의 PARAM_VERSIONS 맨 뒤에 붙여 넣으면 돼요.`,
+            });
         } catch {
-            setCopied('클립보드에 복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
+            setNotice({ ok: false, text: '클립보드에 복사하지 못했어요. 브라우저 권한을 확인해 주세요.' });
         }
     };
 
@@ -72,16 +91,51 @@ export function ParamPanel({ params, onChange }: ParamPanelProps) {
                     지금 게임 설정: {LATEST_VERSION.id}
                     {changed && <span className="text-amber-400"> · 바꾼 값이 있어요</span>}
                 </p>
+                {import.meta.env.DEV && (
+                    <button
+                        type="button"
+                        onClick={applyToGame}
+                        disabled={!changed || applying}
+                        className="w-full rounded-md bg-zinc-100 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-white disabled:bg-zinc-800 disabled:text-zinc-500"
+                    >
+                        {applying ? '적용하는 중…' : `${nextId}로 게임에 적용`}
+                    </button>
+                )}
                 <button
                     type="button"
                     onClick={copy}
                     disabled={!changed}
-                    className="w-full rounded-md bg-zinc-100 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-white disabled:bg-zinc-800 disabled:text-zinc-500"
+                    className="text-xs text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline disabled:text-zinc-600 disabled:no-underline"
                 >
-                    {nextId}로 설정 복사
+                    코드로 복사
                 </button>
-                {copied && <output className="block text-xs text-emerald-400">{copied}</output>}
+                {notice && (
+                    <output className={`block text-xs ${notice.ok ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {notice.text}
+                    </output>
+                )}
             </div>
+
+            <Section title="간편 설정">
+                <div className="grid grid-cols-3 gap-2">
+                    {PRESETS.map((preset) => {
+                        const active = sameParams(params, preset.params);
+                        return (
+                            <button
+                                key={preset.id}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() => onChange(preset.params)}
+                                className={`rounded-md border px-2 py-2 text-left ${active ? 'border-zinc-300 bg-zinc-800' : 'border-zinc-700 hover:bg-zinc-900'}`}
+                            >
+                                <span className="block text-sm font-semibold">{preset.label}</span>
+                                <span className="block text-xs text-zinc-400">{preset.summary}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="text-xs text-zinc-500">고른 뒤 아래 슬라이더로 다듬을 수 있어요</p>
+            </Section>
 
             <Section title="기본">
                 <Slider
@@ -89,7 +143,7 @@ export function ParamPanel({ params, onChange }: ParamPanelProps) {
                     hint="국면·점프를 빼고 평소 하루에 움직이는 정도"
                     value={params.dailyVol}
                     min={0.005}
-                    max={0.15}
+                    max={1.2}
                     step={0.005}
                     format={(v) => percent(v)}
                     onChange={(dailyVol) => set({ dailyVol })}
@@ -98,10 +152,10 @@ export function ParamPanel({ params, onChange }: ParamPanelProps) {
                     label="평균회귀 반감기"
                     hint="적정가치에서 벌어진 거리가 절반으로 줄어드는 기간. 길수록 추세가 오래 감"
                     value={params.reversionHalfLifeDays}
-                    min={1}
-                    max={60}
-                    step={1}
-                    format={(v) => `${v}일`}
+                    min={0.01}
+                    max={30}
+                    step={0.01}
+                    format={formatDays}
                     onChange={(reversionHalfLifeDays) => set({ reversionHalfLifeDays })}
                 />
             </Section>
@@ -122,8 +176,8 @@ export function ParamPanel({ params, onChange }: ParamPanelProps) {
                     <Slider
                         label="하루 추세"
                         value={params.regimes[regime].driftPerDay}
-                        min={-0.5}
-                        max={0.5}
+                        min={-12}
+                        max={12}
                         step={0.01}
                         format={(v) => signedPercent(v, 0)}
                         onChange={(driftPerDay) => setRegime(regime, { driftPerDay })}
@@ -140,10 +194,10 @@ export function ParamPanel({ params, onChange }: ParamPanelProps) {
                     <Slider
                         label="평균 지속 시간"
                         value={params.regimes[regime].meanHours}
-                        min={0.5}
-                        max={48}
-                        step={0.5}
-                        format={(v) => `${v}시간`}
+                        min={0.02}
+                        max={12}
+                        step={0.01}
+                        format={formatHours}
                         onChange={(meanHours) => setRegime(regime, { meanHours })}
                     />
                 </Section>
@@ -190,8 +244,8 @@ export function ParamPanel({ params, onChange }: ParamPanelProps) {
                     label="하루 평균 횟수"
                     value={params.jumps.perDay}
                     min={0}
-                    max={10}
-                    step={0.1}
+                    max={150}
+                    step={0.5}
                     format={(v) => `${v.toFixed(1)}회`}
                     onChange={(perDay) => set({ jumps: { ...params.jumps, perDay } })}
                 />
