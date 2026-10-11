@@ -46,56 +46,6 @@ export interface ParamVersion {
  */
 export const PARAM_VERSIONS: readonly ParamVersion[] = [
     {
-        // 실제 주식의 하루 흐름(하루 변동 약 3%, 8시간 남짓 이어지는 추세, 하루 한 번꼴 급등락)을
-        // 게임 1시간에 담았다. 실제 이틀치 등락이 게임 2시간에 지나간다.
-        id: 'v1',
-        params: {
-            dailyVol: 0.147,
-            regimes: {
-                bull: { driftPerDay: 2.4, volScale: 0.9, meanHours: 0.33 },
-                bear: { driftPerDay: -2.88, volScale: 1.3, meanHours: 0.21 },
-                sideways: { driftPerDay: 0, volScale: 0.7, meanHours: 0.42 },
-            },
-            clustering: { alpha: 0.02, beta: 0.9767 },
-            tailDf: 5,
-            jumps: { perDay: 24, size: 0.03 },
-            reversionHalfLifeDays: 0.42,
-        },
-    },
-    {
-        id: 'v2',
-        params: {
-            dailyVol: 0.294,
-            regimes: {
-                bull: {
-                    driftPerDay: 9.6,
-                    volScale: 0.9,
-                    meanHours: 0.0825,
-                },
-                bear: {
-                    driftPerDay: -11.52,
-                    volScale: 1.3,
-                    meanHours: 0.0525,
-                },
-                sideways: {
-                    driftPerDay: 0,
-                    volScale: 0.7,
-                    meanHours: 0.105,
-                },
-            },
-            clustering: {
-                alpha: 0.02,
-                beta: 0.9767,
-            },
-            tailDf: 5,
-            jumps: {
-                perDay: 96,
-                size: 0.03,
-            },
-            reversionHalfLifeDays: 0.105,
-        },
-    },
-    {
         // 토스증권 코스닥 8종목 1분봉(2026-09-21~10-08 정규장)에 맞춘 설정. 게임 1분 = 실제 1분.
         // 추세는 평균 25분, 급등락은 하루 2번꼴이고 급등락 뒤에 변동성이 덩달아 커지지 않는다.
         id: 'v3',
