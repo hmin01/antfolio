@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { changeClass, num, signedPercent, signedWon } from '../format.ts';
+import { changeClass, num, percent, signedPercent, signedWon } from '../format.ts';
 import { quoteOf } from '../game/quotes.ts';
 import { STOCKS } from '../game/stocks.ts';
 import { game, useGame } from '../game/store.ts';
@@ -13,6 +13,7 @@ const SORTS = [
     { id: 'default', label: '기본' },
     { id: 'rise', label: '상승' },
     { id: 'fall', label: '하락' },
+    { id: 'dividend', label: '배당' },
 ] as const;
 type SortId = (typeof SORTS)[number]['id'];
 
@@ -32,9 +33,14 @@ export function StockTable() {
     const { account } = useGame();
     const [sort, setSort] = useState<SortId>('default');
 
-    const rows = STOCKS.map((stock) => ({ stock, quote: quoteOf(game.market, stock.id) }));
+    const rows = STOCKS.map((stock) => ({
+        stock,
+        quote: quoteOf(game.market, stock.id),
+        dividend: game.dividendOf(stock.id),
+    }));
     if (sort === 'rise') rows.sort((a, b) => b.quote.changeRate - a.quote.changeRate);
     if (sort === 'fall') rows.sort((a, b) => a.quote.changeRate - b.quote.changeRate);
+    if (sort === 'dividend') rows.sort((a, b) => b.dividend.yield - a.dividend.yield);
 
     return (
         <Panel
@@ -66,7 +72,7 @@ export function StockTable() {
                 <span className="hidden text-right sm:block">24시간 흐름</span>
             </div>
             <ol className="-mx-2 mt-1">
-                {rows.map(({ stock, quote }, i) => {
+                {rows.map(({ stock, quote, dividend }, i) => {
                     const held = stock.id in account.holdings;
                     return (
                         <li key={stock.id}>
@@ -86,7 +92,10 @@ export function StockTable() {
                                                 </span>
                                             )}
                                         </span>
-                                        <span className="text-xs text-faint">{stock.sector}</span>
+                                        <span className="text-xs text-faint">
+                                            {stock.sector}
+                                            <span className="text-primary"> · 배당 {percent(dividend.yield)}</span>
+                                        </span>
                                     </span>
                                 </span>
                                 <span className="text-right tabular-nums">

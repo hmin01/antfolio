@@ -1,5 +1,5 @@
 import { changeClass, dateTime, num, signedWon } from '../format.ts';
-import type { Trade } from '../game/account.ts';
+import type { DividendPayout, Trade } from '../game/account.ts';
 import { STOCK_BY_ID } from '../game/stocks.ts';
 
 const SIDE_LABEL = { buy: '구매', sell: '판매' } as const;
@@ -26,6 +26,24 @@ export function TradeRow({ trade }: { trade: Trade }) {
                     <p className={`text-xs ${changeClass(trade.realizedPnl)}`}>수익 {signedWon(trade.realizedPnl)}</p>
                 )}
             </div>
+        </li>
+    );
+}
+
+export function DividendRow({ payout }: { payout: DividendPayout }) {
+    const stock = STOCK_BY_ID.get(payout.stockId);
+
+    return (
+        <li className="flex items-center justify-between gap-3 py-3 text-sm">
+            <div className="min-w-0">
+                <p className="truncate font-medium">
+                    <span className="text-primary">배당</span> {stock?.name ?? payout.stockId}
+                </p>
+                <p className="text-xs text-faint tabular-nums">
+                    평균 {payout.qty.toLocaleString('ko-KR', { maximumFractionDigits: 1 })}주 · {dateTime(payout.time)}
+                </p>
+            </div>
+            <p className="shrink-0 font-medium text-up tabular-nums">+{num(payout.amount)}원</p>
         </li>
     );
 }

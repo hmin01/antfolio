@@ -9,6 +9,21 @@ export interface Holding {
     qty: number;
     /** 수수료를 뺀 평균 매수 단가 */
     avgPrice: number;
+    /** 지금 배당 구간이 시작된 틱. 처음 산 틱부터 3시간마다 새 구간이 시작된다 */
+    dividendSince?: number;
+    /** 지금 배당 구간에서 쌓인 (보유 수량 × 보유 틱). 구간 길이로 나누면 평균 보유 수량 */
+    shareTicks?: number;
+}
+
+export interface DividendPayout {
+    id: string;
+    stockId: string;
+    /** 구간 동안의 평균 보유 수량 */
+    qty: number;
+    /** 배당 기준 주가 */
+    price: number;
+    amount: number;
+    time: number;
 }
 
 /** 아직 체결되지 않은 지정가 주문. 매수는 현금을, 매도는 주식을 묶어 둔다 */
@@ -39,11 +54,21 @@ export interface Account {
     holdings: Record<string, Holding>;
     orders: LimitOrder[];
     trades: Trade[];
+    /** 받은 배당. 최근 것부터 */
+    dividends: DividendPayout[];
+    /** 배당 보유량을 마지막으로 쌓은 틱. 이 틱 이후로 보유량이 바뀌기 전에 다시 쌓아야 한다 */
+    dividendTick?: number;
 }
 
 export type OrderResult = { ok: true; account: Account; trade: Trade | null } | { ok: false; reason: string };
 
-export const createAccount = (): Account => ({ cash: START_CASH, holdings: {}, orders: [], trades: [] });
+export const createAccount = (): Account => ({
+    cash: START_CASH,
+    holdings: {},
+    orders: [],
+    trades: [],
+    dividends: [],
+});
 
 /** 한국거래소 호가 단위. 지정가 입력의 -/+ 버튼이 이만큼씩 움직인다 */
 export function priceStep(price: number): number {
@@ -98,7 +123,7 @@ function applyFill(
     if (fill.side === 'buy') {
         cash -= amount + fee;
         const qty = holding.qty + fill.qty;
-        holdings[fill.stockId] = { qty, avgPrice: (holding.avgPrice * holding.qty + amount) / qty };
+        holdings[fill.stockId] = { ...holding, qty, avgPrice: (holding.avgPrice * holding.qty + amount) / qty };
     } else {
         cash += amount - fee;
         realizedPnl = (fill.price - holding.avgPrice) * fill.qty - fee;

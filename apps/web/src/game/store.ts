@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 import { LATEST_VERSION, PARAM_VERSIONS, TICK_MS, tickIndexAt, TICKS_PER_DAY, tickStartTime } from '@gaemigul/queen';
 
+import { num } from '../format.ts';
 import {
     cancelOrder,
     createAccount,
@@ -15,7 +16,15 @@ import {
     type Side,
     type Trade,
 } from './account.ts';
+import {
+    accrueDividends,
+    announceDividends,
+    dividendInfo,
+    initDividendPolicy,
+    type DividendPolicy,
+} from './dividends.ts';
 import { Market } from './market.ts';
+import { STOCK_BY_ID } from './stocks.ts';
 import { loadSave, writeSave, type SaveData } from './storage.ts';
 
 /** 5분 이상 자리를 비웠다 돌아오면 요약을 보여준다 */
@@ -31,12 +40,38 @@ export interface AwayReport {
     beforeValue: number;
     afterValue: number;
     trades: Trade[];
+    /** 자리 비운 동안 받은 배당 합계 */
+    dividends: number;
+}
+
+/** 화면을 보는 동안 배당이 들어오거나 보유 종목의 배당이 바뀌면 잠깐 띄우는 알림 */
+export interface GameNotice {
+    id: string;
+    text: string;
 }
 
 export interface GameSnapshot {
     tick: number;
     account: Account;
     away: AwayReport | null;
+    notice: GameNotice | null;
+}
+
+/** 알림 문구. 배당 입금과 보유 종목의 배당 공시를 한 줄로 묶는다 */
+function noticeText(dividends: number, payoutCount: number, changes: { stockId: string; from: number; to: number }[]) {
+    const parts: string[] = [];
+    if (dividends > 0) {
+        parts.push(`💰 배당금 ${num(dividends)}원이 들어왔어요${payoutCount > 1 ? ` (${payoutCount}건)` : ''}`);
+    }
+    if (changes.length > 0) {
+        const first = changes[0]!;
+        const rate = Math.round((first.to / first.from - 1) * 100);
+        const others = changes.length > 1 ? ` 외 ${changes.length - 1}종목` : '';
+        parts.push(
+            `📢 ${STOCK_BY_ID.get(first.stockId)!.name} 배당 ${rate > 0 ? '▲' : '▼'}${Math.abs(rate)}%${others}`,
+        );
+    }
+    return parts.join(' · ');
 }
 
 function newSave(now: number): SaveData {
@@ -77,12 +112,21 @@ class GameStore {
     private listeners = new Set<() => void>();
     /** 마지막으로 화면을 본 뒤에 체결된 주문 */
     private unseenTrades: Trade[] = [];
+    /** 마지막으로 화면을 본 뒤에 받은 배당 합계 */
+    private unseenDividends = 0;
+    private notice: GameNotice | null = null;
     private resetting = false;
 
     constructor() {
         const now = Date.now();
-        const loaded = loadSave() ?? newSave(now);
-        const tick = tickIndexAt(now, loaded.epoch);
+        const raw = loadSave() ?? newSave(now);
+        // 배당 기능 전의 저장에는 배당 내역이 없다.
+        const tick = tickIndexAt(now, raw.epoch);
+        const loaded = {
+            ...raw,
+            account: { ...raw.account, dividends: raw.account.dividends ?? [] },
+            dividendPolicy: initDividendPolicy(raw.dividendPolicy, tick),
+        };
         this.save = scheduleLatestVersion(loaded, tick);
         // 목록에는 최근 24시간이, 지정가 주문이 걸린 종목은 마지막으로 처리한 틱부터의 가격이 필요하다.
         const { account, processedTick } = this.save;
@@ -94,7 +138,7 @@ class GameStore {
             this.save.engineDays ?? null,
             (id) => (ordered.has(id) ? Math.min(processedTick, tick - TICKS_PER_DAY) : tick - TICKS_PER_DAY),
         );
-        this.snapshot = { tick: this.market.tick, account: this.save.account, away: null };
+        this.snapshot = { tick: this.market.tick, account: this.save.account, away: null, notice: null };
         this.sync();
     }
 
@@ -135,8 +179,28 @@ class GameStore {
         const target = tickIndexAt(Date.now(), this.save.epoch);
         this.market.advanceTo(target);
 
+        // 지나간 자정마다 배당을 공시해 두어야, 그 뒤에 끝난 배당 구간을 바뀐 주당 배당금으로 계산할 수 있다.
+        const announced = announceDividends(this.policy, target, (id, at) => this.market.rawPrice(id, at));
+        const policy = announced.policy;
+
         let account = this.save.account;
+        let dividends = 0;
+        let dividendCount = 0;
+        const accrue = (t: number) => {
+            const result = accrueDividends(
+                account,
+                t,
+                policy,
+                (id, at) => this.market.price(id, at),
+                (at) => tickStartTime(at, this.save.epoch),
+            );
+            account = result.account;
+            for (const p of result.payouts) dividends += p.amount;
+            dividendCount += result.payouts.length;
+        };
         for (let t = this.save.processedTick + 1; t <= target && account.orders.length > 0; t++) {
+            // 체결로 보유량이 바뀌기 전에 그때까지의 보유분으로 배당을 쌓는다.
+            accrue(t);
             const result = fillLimitOrders(
                 account,
                 (id) => this.market.price(id, t),
@@ -145,6 +209,8 @@ class GameStore {
             account = result.account;
             this.unseenTrades.push(...result.trades);
         }
+        accrue(target);
+        this.unseenDividends += dividends;
         // 지난 틱으로 주문을 다 처리한 뒤에야 오래된 기록을 버릴 수 있다.
         this.market.trimHistory();
 
@@ -158,13 +224,20 @@ class GameStore {
                     beforeValue: this.save.lastSeenValue,
                     afterValue: value,
                     trades: this.unseenTrades,
+                    dividends: this.unseenDividends,
                 };
+            } else {
+                const heldChanges = announced.changes.filter((c) => c.stockId in account.holdings);
+                if (dividends > 0 || heldChanges.length > 0) {
+                    this.notice = { id: crypto.randomUUID(), text: noticeText(dividends, dividendCount, heldChanges) };
+                }
             }
             this.unseenTrades = [];
+            this.unseenDividends = 0;
             this.save = { ...this.save, lastSeenTick: target, lastSeenValue: value };
         }
 
-        this.commit({ ...this.save, account, processedTick: target }, away);
+        this.commit({ ...this.save, account, processedTick: target, dividendPolicy: policy }, away);
     };
 
     dismissAway = () => {
@@ -172,8 +245,33 @@ class GameStore {
         this.emit();
     };
 
-    marketOrder = (stockId: string, side: Side, qty: number): OrderResult =>
-        this.apply(marketOrder(this.save.account, stockId, side, qty, this.market.price(stockId), Date.now()));
+    dismissNotice = () => {
+        this.notice = null;
+        this.snapshot = { ...this.snapshot, notice: null };
+        this.emit();
+    };
+
+    private get policy(): DividendPolicy {
+        return this.save.dividendPolicy!;
+    }
+
+    /** 이 종목의 주당 배당금, 지금 주가 기준 배당률, 최근 공시 변화 */
+    dividendOf = (stockId: string) => dividendInfo(this.policy, stockId, this.market.price(stockId));
+
+    /**
+     * 시장가 주문은 보유량을 바로 바꾸므로, 그 전에 지금 틱까지 배당 보유량을 쌓는다.
+     * 매 틱 sync에서 이미 쌓아 두므로 보통은 바뀌는 것이 없다.
+     */
+    marketOrder = (stockId: string, side: Side, qty: number): OrderResult => {
+        const { account } = accrueDividends(
+            this.save.account,
+            this.market.tick,
+            this.policy,
+            (id, at) => this.market.price(id, at),
+            (at) => tickStartTime(at, this.save.epoch),
+        );
+        return this.apply(marketOrder(account, stockId, side, qty, this.market.price(stockId), Date.now()));
+    };
 
     placeLimitOrder = (stockId: string, side: Side, qty: number, limitPrice: number): OrderResult =>
         this.apply(placeLimitOrder(this.save.account, stockId, side, qty, limitPrice, Date.now()));
@@ -199,7 +297,7 @@ class GameStore {
         if (this.resetting) return;
         this.save = { ...save, engineDays: this.market.engineDays() };
         writeSave(this.save);
-        this.snapshot = { tick: this.market.tick, account: save.account, away };
+        this.snapshot = { tick: this.market.tick, account: save.account, away, notice: this.notice };
         this.emit();
     }
 

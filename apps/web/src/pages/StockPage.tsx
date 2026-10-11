@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
 
+import { TICK_MS } from '@gaemigul/queen';
+
 import { OrderPanel } from '../components/OrderPanel.tsx';
 import { Panel } from '../components/Panel.tsx';
 import { StockAvatar } from '../components/StockAvatar.tsx';
 import { StockChart } from '../components/StockChart.tsx';
 import { TradeRow } from '../components/TradeRow.tsx';
-import { changeClass, changeText, num, signedPercent, signedWon, won } from '../format.ts';
+import { changeClass, changeText, duration, num, percent, signedPercent, signedWon, won } from '../format.ts';
+import { DIVIDEND_PERIOD_TICKS, MAX_DIVIDEND_YIELD, nextDividend } from '../game/dividends.ts';
 import { quoteOf } from '../game/quotes.ts';
 import { STOCK_BY_ID } from '../game/stocks.ts';
 import { game, useGame } from '../game/store.ts';
@@ -29,6 +32,32 @@ function RangeBar({ low, high, price }: { low: number; high: number; price: numb
                 <span className="text-down">{num(low)}</span>
                 <span className="text-up">{num(high)}</span>
             </div>
+        </div>
+    );
+}
+
+/** 지금 주가 기준 배당률, 주당 배당금, 최근 배당 공시 */
+function DividendSummary({ stockId }: { stockId: string }) {
+    const info = game.dividendOf(stockId);
+    const changed = Math.round(info.lastChange * 100);
+
+    return (
+        <div className="leading-tight">
+            <p className="text-xs text-faint">배당률 · 3시간마다</p>
+            <p className="mt-1 text-lg font-bold text-primary tabular-nums">
+                {percent(info.yield)}
+                {info.capped && <span className="ml-1 text-xs font-medium text-faint">상한</span>}
+            </p>
+            <p className="text-xs text-muted tabular-nums">
+                주당 {won(info.dps)}
+                {changed !== 0 && (
+                    <span className={changed > 0 ? 'text-up' : 'text-down'}>
+                        {' '}
+                        {changed > 0 ? '▲' : '▼'}
+                        {Math.abs(changed)}% 공시
+                    </span>
+                )}
+            </p>
         </div>
     );
 }
@@ -60,7 +89,10 @@ function StockHeader({ stockId }: { stockId: string }) {
                     </p>
                 </div>
             </div>
-            <RangeBar low={quote.low} high={quote.high} price={quote.price} />
+            <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+                <DividendSummary stockId={stockId} />
+                <RangeBar low={quote.low} high={quote.high} price={quote.price} />
+            </div>
         </div>
     );
 }
@@ -72,9 +104,26 @@ function StockActivity({ stockId }: { stockId: string }) {
     const orders = account.orders.filter((o) => o.stockId === stockId);
     const trades = account.trades.filter((t) => t.stockId === stockId).slice(0, 20);
     const price = game.market.price(stockId);
+    const info = game.dividendOf(stockId);
+    const dividend = holding
+        ? nextDividend(holding, account.dividendTick ?? game.market.tick, game.market.tick, info.dps, price)
+        : null;
 
     return (
         <Panel title="내 투자">
+            <p className="mb-3 rounded-xl border border-line px-4 py-3 text-sm">
+                <span className="text-muted">
+                    보유 {duration(DIVIDEND_PERIOD_TICKS * TICK_MS)}마다 1주당{' '}
+                    <span className="font-semibold text-fg">{won(info.dps)}</span>을 받아요. 배당률은 주가에 따라
+                    달라지고 최대 {percent(MAX_DIVIDEND_YIELD)}까지예요
+                </span>
+                {dividend && (
+                    <span className="mt-1 block text-muted tabular-nums">
+                        다음 배당 {duration(dividend.ticksLeft * TICK_MS)} 후 · 예상{' '}
+                        <span className="font-semibold text-up">+{won(dividend.expected)}</span>
+                    </span>
+                )}
+            </p>
             {holding ? (
                 <dl className="grid grid-cols-2 gap-3 rounded-xl bg-surface-2 p-4 sm:grid-cols-4">
                     {[

@@ -1,5 +1,6 @@
 import { AwaySummary } from './components/AwaySummary.tsx';
 import { Header } from './components/Header.tsx';
+import { NoticeToast } from './components/NoticeToast.tsx';
 import { HomePage } from './pages/HomePage.tsx';
 import { StockPage } from './pages/StockPage.tsx';
 import { useRoute } from './router.ts';
@@ -14,6 +15,7 @@ export function App() {
                 {route.page === 'stock' ? <StockPage stockId={route.stockId} /> : <HomePage />}
             </main>
             <AwaySummary />
+            <NoticeToast />
         </div>
     );
 }

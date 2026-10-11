@@ -40,6 +40,12 @@ export function AwaySummary() {
                         <div className={`text-sm font-medium tabular-nums ${changeClass(diff)}`}>
                             {signedWon(diff)} ({signedPercent(away.afterValue / away.beforeValue - 1)})
                         </div>
+                        {away.dividends > 0 && (
+                            <div className="mt-2 border-t border-line pt-2 text-sm text-muted">
+                                그동안 받은 배당{' '}
+                                <span className="font-semibold text-up tabular-nums">+{won(away.dividends)}</span>
+                            </div>
+                        )}
                     </div>
 
                     {away.trades.length > 0 ? (

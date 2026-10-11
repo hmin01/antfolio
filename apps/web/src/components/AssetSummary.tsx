@@ -1,13 +1,17 @@
+import { TICKS_PER_DAY, tickStartTime } from '@gaemigul/queen';
+
 import { changeClass, signedPercent, signedWon, won } from '../format.ts';
 import { availableCash, START_CASH, totalValue } from '../game/account.ts';
 import { game, useGame } from '../game/store.ts';
 import { Panel } from './Panel.tsx';
 
 export function AssetSummary() {
-    const { account } = useGame();
+    const { account, tick } = useGame();
     const value = totalValue(account, (id) => game.market.price(id));
     const stockValue = value - account.cash;
     const profit = value - START_CASH;
+    const dayAgo = tickStartTime(tick - TICKS_PER_DAY, game.epoch);
+    const recentDividends = account.dividends.filter((d) => d.time >= dayAgo).reduce((sum, d) => sum + d.amount, 0);
 
     return (
         <Panel>
@@ -17,6 +21,11 @@ export function AssetSummary() {
                 {signedWon(profit)} ({signedPercent(value / START_CASH - 1)})
                 <span className="ml-1 font-normal text-faint">시작 금액 대비</span>
             </p>
+            {recentDividends > 0 && (
+                <p className="mt-0.5 text-sm text-muted tabular-nums">
+                    최근 24시간 배당 <span className="font-semibold text-up">+{won(recentDividends)}</span>
+                </p>
+            )}
 
             <dl className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-surface-2 p-3 text-center">
                 {[

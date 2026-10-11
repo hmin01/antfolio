@@ -1,4 +1,5 @@
 import type { Account } from './account.ts';
+import type { DividendPolicy } from './dividends.ts';
 import type { EngineDays, ParamSchedule } from './market.ts';
 
 // 틱 간격이 15초에서 10초로 바뀌면서 예전 저장의 가격 기록은 이어갈 수 없어 새 키를 쓴다.
@@ -14,6 +15,8 @@ export interface SaveData {
     paramSchedule: ParamSchedule;
     /** 종목별 하루 경계의 엔진 상태. 다음에 열 때 여기서부터 계산한다. 없으면 시장 시작 틱부터 계산한다 */
     engineDays?: EngineDays;
+    /** 종목별 배당 공시 기록. 없으면 오늘 자정에 기본 주당 배당금으로 시작한다 */
+    dividendPolicy?: DividendPolicy;
     account: Account;
     /** 지정가 주문 체결까지 처리한 마지막 틱 */
     processedTick: number;

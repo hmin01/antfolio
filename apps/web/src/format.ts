@@ -4,6 +4,9 @@ export const won = (value: number) => `${num(value)}원`;
 
 export const signedWon = (value: number) => `${value > 0 ? '+' : ''}${won(value)}`;
 
+/** 배당률처럼 부호 없이 쓰는 비율. 6% → "6%", 0.5% → "0.5%" */
+export const percent = (ratio: number) => `${Number((ratio * 100).toFixed(2))}%`;
+
 export const signedPercent = (ratio: number, digits = 2) => `${ratio > 0 ? '+' : ''}${(ratio * 100).toFixed(digits)}%`;
 
 /** 국내 관례대로 오르면 빨강, 내리면 파랑, 그대로면 기본 글자색 */

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 
-import { changeClass, num, signedPercent, signedWon, won } from '../format.ts';
+import { TICK_MS } from '@gaemigul/queen';
+
+import { changeClass, duration, num, signedPercent, signedWon, won } from '../format.ts';
+import { nextDividend } from '../game/dividends.ts';
 import { STOCK_BY_ID } from '../game/stocks.ts';
 import { game, useGame } from '../game/store.ts';
 import { stockHref } from '../router.ts';
 import { Panel } from './Panel.tsx';
 import { StockAvatar } from './StockAvatar.tsx';
-import { TradeRow } from './TradeRow.tsx';
+import { DividendRow, TradeRow } from './TradeRow.tsx';
 
 const TABS = [
     { id: 'holdings', label: '보유' },
@@ -31,6 +34,13 @@ function Holdings() {
                 const price = game.market.price(id);
                 const value = price * h.qty;
                 const pnl = (price - h.avgPrice) * h.qty;
+                const dividend = nextDividend(
+                    h,
+                    account.dividendTick ?? game.market.tick,
+                    game.market.tick,
+                    game.dividendOf(id).dps,
+                    price,
+                );
                 return (
                     <li key={id}>
                         <a
@@ -42,6 +52,12 @@ function Holdings() {
                                 <span className="block truncate text-[15px] font-medium">{stock.name}</span>
                                 <span className="text-xs text-faint tabular-nums">
                                     {num(h.qty)}주 · 평균 {num(h.avgPrice)}원
+                                    <span className="block text-primary">
+                                        배당 {won(dividend.expected)} ·{' '}
+                                        <span className="whitespace-nowrap">
+                                            {duration(dividend.ticksLeft * TICK_MS)} 후
+                                        </span>
+                                    </span>
                                 </span>
                             </span>
                             <span className="text-right tabular-nums">
@@ -88,15 +104,22 @@ function Orders() {
     );
 }
 
+/** 거래와 배당을 시간순으로 섞어 보여준다. */
 function Trades() {
     const { account } = useGame();
-    if (account.trades.length === 0) return <Empty>아직 거래한 적이 없어요</Empty>;
+    const rows = [
+        ...account.trades.map((trade) => ({ time: trade.time, trade, payout: null })),
+        ...account.dividends.map((payout) => ({ time: payout.time, trade: null, payout })),
+    ]
+        .toSorted((a, b) => b.time - a.time)
+        .slice(0, 50);
+    if (rows.length === 0) return <Empty>아직 거래한 적이 없어요</Empty>;
 
     return (
         <ul className="max-h-[420px] divide-y divide-line overflow-y-auto">
-            {account.trades.slice(0, 50).map((t) => (
-                <TradeRow key={t.id} trade={t} />
-            ))}
+            {rows.map(({ trade, payout }) =>
+                trade ? <TradeRow key={trade.id} trade={trade} /> : <DividendRow key={payout.id} payout={payout} />,
+            )}
         </ul>
     );
 }
