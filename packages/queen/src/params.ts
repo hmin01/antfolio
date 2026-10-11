@@ -25,6 +25,11 @@ export interface EngineParams {
     jumps: { perDay: number; size: number; volKick?: number };
     /** 적정가치에서 벌어진 거리가 절반으로 줄어드는 데 걸리는 일수 */
     reversionHalfLifeDays: number;
+    /**
+     * 국면마다 추세 세기가 달라지는 정도(로그정규 분포의 표준편차). 없으면 국면마다 같은 세기.
+     * 0.6이면 어떤 상승은 완만하고 어떤 상승은 가파르게 나온다
+     */
+    trendSpread?: number;
 }
 
 export interface ParamVersion {
@@ -105,6 +110,24 @@ export const PARAM_VERSIONS: readonly ParamVersion[] = [
             tailDf: 7,
             jumps: { perDay: 2, size: 0.012, volKick: 0 },
             reversionHalfLifeDays: 2,
+        },
+    },
+    {
+        // v3에서 추세만 4배 빠르게 하고 흔들림은 1.5배만 키웠다. 1분 흔들림은 v3와 비슷한데
+        // 상승·하락이 평균 5~6분마다 바뀌어 화면이 빨리 움직인다. 추세마다 세기가 달라 완만한 오름과 가파른 오름이 섞인다.
+        id: 'v4',
+        params: {
+            dailyVol: 0.0674,
+            regimes: {
+                bull: { driftPerDay: 1.4, volScale: 0.9, meanHours: 0.105 },
+                bear: { driftPerDay: -1.68, volScale: 1.2, meanHours: 0.085 },
+                sideways: { driftPerDay: 0, volScale: 0.8, meanHours: 0.105 },
+            },
+            clustering: { alpha: 0.01, beta: 0.985 },
+            tailDf: 7,
+            jumps: { perDay: 3, size: 0.012, volKick: 0 },
+            reversionHalfLifeDays: 0.5,
+            trendSpread: 0.6,
         },
     },
 ];

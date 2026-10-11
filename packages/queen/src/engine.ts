@@ -17,6 +17,8 @@ export interface EngineState {
     /** 다음 틱에 쓸 틱당 분산 */
     variance: number;
     regime: Regime;
+    /** 지금 국면의 추세 세기. 국면마다 새로 뽑는다(`trendSpread`가 없으면 늘 1) */
+    trendStrength: number;
 }
 
 export function baseTickVariance(params: EngineParams): number {
@@ -30,6 +32,7 @@ export function initialState(price: number, params: EngineParams, regime: Regime
         logFairValue: Math.log(price),
         variance: baseTickVariance(params),
         regime,
+        trendStrength: 1,
     };
 }
 
@@ -55,7 +58,14 @@ export function step(state: EngineState, params: EngineParams, seed: number): En
     const regime = nextRegime(rng, state.regime, params);
     const { driftPerDay, volScale } = params.regimes[regime];
 
-    const drift = driftPerDay / TICKS_PER_DAY;
+    // 평균이 1인 로그정규 분포. 설정이 없으면 난수를 뽑지 않아 예전 버전의 결과가 그대로 유지된다.
+    const spread = params.trendSpread;
+    const trendStrength =
+        spread !== undefined && regime !== state.regime
+            ? Math.exp(spread * rng.normal() - spread ** 2 / 2)
+            : state.trendStrength;
+
+    const drift = (driftPerDay * trendStrength) / TICKS_PER_DAY;
     const reversionRate = Math.LN2 / (params.reversionHalfLifeDays * TICKS_PER_DAY);
     const reversion = -reversionRate * (state.logPrice - state.logFairValue);
 
@@ -79,6 +89,7 @@ export function step(state: EngineState, params: EngineParams, seed: number): En
         logFairValue: state.logFairValue,
         variance,
         regime,
+        trendStrength,
     };
 }
 
