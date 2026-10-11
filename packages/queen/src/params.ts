@@ -34,7 +34,7 @@ export interface ParamVersion {
  *
  * 게임은 처음 보는 버전을 발견하면 그때부터 1분 뒤 틱부터 적용하고,
  * 그 전의 가격은 예전 버전으로 다시 계산한다. 그래서 한 번 추가한 버전은 지우거나 고치지 말고,
- * 바꾸고 싶으면 여왕의 방에서 "설정 복사"로 새 버전을 만들어 맨 뒤에 붙인다.
+ * 바꾸고 싶으면 새 버전을 만들어 맨 뒤에 붙인다.
  */
 export const PARAM_VERSIONS: readonly ParamVersion[] = [
     {
@@ -87,34 +87,9 @@ export const PARAM_VERSIONS: readonly ParamVersion[] = [
             reversionHalfLifeDays: 0.105,
         },
     },
-    // @queen-versions-end 새 버전은 이 줄 위에 추가한다. 여왕의 방 "게임에 적용"도 이 줄을 기준으로 끼워 넣는다.
 ];
 
 export const LATEST_VERSION = PARAM_VERSIONS[PARAM_VERSIONS.length - 1]!;
 
 /** 지금 게임에 적용되는 설정 */
 export const DEFAULT_PARAMS: EngineParams = LATEST_VERSION.params;
-
-/**
- * 같은 흐름을 `speed`배 빠르게 돌린다. 차트 모양은 그대로 두고 시간축만 압축하는 것이라
- * 추세와 노이즈의 비율이 유지된다.
- * - 시간 단위 값(국면 길이, 평균회귀 반감기)은 1/speed
- * - 하루당 값(추세, 급등락 횟수)은 speed배, 변동성은 √speed배
- * - 변동성 뭉침은 틱 단위 값이라 그대로 둔다. 압축하면 거의 바로 사라진다.
- */
-export function compressTime(params: EngineParams, speed: number): EngineParams {
-    const regimes = Object.fromEntries(
-        REGIMES.map((r) => {
-            const { driftPerDay, volScale, meanHours } = params.regimes[r];
-            return [r, { driftPerDay: driftPerDay * speed, volScale, meanHours: meanHours / speed }];
-        }),
-    ) as EngineParams['regimes'];
-
-    return {
-        ...params,
-        dailyVol: params.dailyVol * Math.sqrt(speed),
-        regimes,
-        jumps: { ...params.jumps, perDay: params.jumps.perDay * speed },
-        reversionHalfLifeDays: params.reversionHalfLifeDays / speed,
-    };
-}

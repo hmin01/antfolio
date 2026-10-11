@@ -2,7 +2,6 @@
 export { TICK_MS, tickIndexAt, tickStartTime } from './clock.ts';
 export { createRng, rngForTick, type Rng } from './rng.ts';
 export {
-    compressTime,
     DEFAULT_PARAMS,
     LATEST_VERSION,
     PARAM_VERSIONS,
