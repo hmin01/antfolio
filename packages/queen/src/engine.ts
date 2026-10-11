@@ -63,12 +63,13 @@ export function step(state: EngineState, params: EngineParams, seed: number): En
     const jumpChance = params.jumps.perDay / TICKS_PER_DAY;
     const jump = rng.next() < jumpChance ? rng.normal() * params.jumps.size : 0;
     const shock = diffusion + jump;
+    const clusterShock = diffusion + jump * (params.jumps.volKick ?? 1);
 
     const { alpha } = params.clustering;
     const beta = Math.min(params.clustering.beta, MAX_PERSISTENCE - alpha);
     const base = baseTickVariance(params);
     const variance = Math.min(
-        base * (1 - alpha - beta) + alpha * shock ** 2 + beta * state.variance,
+        base * (1 - alpha - beta) + alpha * clusterShock ** 2 + beta * state.variance,
         base * MAX_VARIANCE_MULTIPLE,
     );
 

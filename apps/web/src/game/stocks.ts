@@ -28,7 +28,7 @@ export function stockParams(base: EngineParams, { vol = 1, trend = 1, jumps = 1,
         ...base,
         dailyVol: base.dailyVol * vol,
         regimes,
-        jumps: { perDay: base.jumps.perDay * jumps, size: base.jumps.size * Math.sqrt(vol) },
+        jumps: { ...base.jumps, perDay: base.jumps.perDay * jumps, size: base.jumps.size * Math.sqrt(vol) },
         tailDf: tailDf ?? base.tailDf,
     };
 }

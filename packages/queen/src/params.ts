@@ -18,8 +18,11 @@ export interface EngineParams {
     clustering: { alpha: number; beta: number };
     /** Student-t 자유도. 작을수록 꼬리가 두꺼워 큰 움직임이 잦다. 30 이상이면 정규분포에 가깝다 */
     tailDf: number;
-    /** 급등락. perDay는 하루 평균 횟수, size는 한 번의 크기(로그 수익률 표준편차) */
-    jumps: { perDay: number; size: number };
+    /**
+     * 급등락. perDay는 하루 평균 횟수, size는 한 번의 크기(로그 수익률 표준편차).
+     * volKick은 급등락이 변동성 뭉침에 들어가는 비율(0~1, 없으면 1). 1이면 급등락 직후 한동안 크게 출렁인다
+     */
+    jumps: { perDay: number; size: number; volKick?: number };
     /** 적정가치에서 벌어진 거리가 절반으로 줄어드는 데 걸리는 일수 */
     reversionHalfLifeDays: number;
 }
@@ -85,6 +88,23 @@ export const PARAM_VERSIONS: readonly ParamVersion[] = [
                 size: 0.03,
             },
             reversionHalfLifeDays: 0.105,
+        },
+    },
+    {
+        // 토스증권 코스닥 8종목 1분봉(2026-09-21~10-08 정규장)에 맞춘 설정. 게임 1분 = 실제 1분.
+        // 추세는 평균 25분, 급등락은 하루 2번꼴이고 급등락 뒤에 변동성이 덩달아 커지지 않는다.
+        id: 'v3',
+        params: {
+            dailyVol: 0.055,
+            regimes: {
+                bull: { driftPerDay: 0.35, volScale: 0.9, meanHours: 0.42 },
+                bear: { driftPerDay: -0.42, volScale: 1.2, meanHours: 0.34 },
+                sideways: { driftPerDay: 0, volScale: 0.8, meanHours: 0.42 },
+            },
+            clustering: { alpha: 0.01, beta: 0.985 },
+            tailDf: 7,
+            jumps: { perDay: 2, size: 0.012, volKick: 0 },
+            reversionHalfLifeDays: 2,
         },
     },
 ];
