@@ -1,9 +1,9 @@
 @import 'tailwindcss';
 
 :root {
-  color-scheme: dark;
+    color-scheme: dark;
 }
 
 body {
-  background-color: var(--color-zinc-950);
+    background-color: var(--color-zinc-950);
 }
