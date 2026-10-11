@@ -24,21 +24,20 @@ export interface Quote {
 
 /** 화면에서 쓰는 "24시간 기준" 시세. 시장이 24시간 열려 있어 전일 종가 대신 24시간 전 가격과 비교한다. */
 export function quoteOf(market: Market, stockId: string): Quote {
-    const prices = market.byId.get(stockId)!.prices;
     const end = market.tick;
-    const start = Math.max(0, end - TICKS_PER_DAY);
+    const start = Math.max(market.baseTick, end - TICKS_PER_DAY);
 
     let high = -Infinity;
     let low = Infinity;
     for (let t = start; t <= end; t++) {
-        const p = prices[t]!;
+        const p = market.rawPrice(stockId, t);
         if (p > high) high = p;
         if (p < low) low = p;
     }
 
     const spark: number[] = [];
     for (let i = 0; i <= SPARK_POINTS; i++) {
-        spark.push(prices[Math.round(start + ((end - start) * i) / SPARK_POINTS)]!);
+        spark.push(market.rawPrice(stockId, Math.round(start + ((end - start) * i) / SPARK_POINTS)));
     }
 
     const price = market.price(stockId);

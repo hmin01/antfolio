@@ -11,7 +11,7 @@ import {
     type UTCTimestamp,
 } from 'lightweight-charts';
 
-import { TIMEFRAMES, toCandles, type Candle, type TimeframeId } from '@gaemigul/queen';
+import { tickStartTime, TIMEFRAMES, toCandles, type Candle, type TimeframeId } from '@gaemigul/queen';
 
 import { dateTime, num } from '../format.ts';
 import { roundPrice } from '../game/market.ts';
@@ -141,8 +141,15 @@ export function StockChart({ stockId }: { stockId: string }) {
     // 종목이나 단위가 바뀌면 전체를 다시 올리고, 틱만 지나면 새로 생기거나 바뀐 캔들만 갱신한다.
     useEffect(() => {
         const series = seriesRef.current!;
-        const candles = toCandles(game.market.byId.get(stockId)!.prices, timeframe.ticks, game.epoch);
-        const key = `${stockId}-${timeframe.id}`;
+        // 기록은 baseTick부터 시작하므로 그만큼 뒤로 민 시각을 기준으로 캔들을 묶는다.
+        const { market } = game;
+        const candles = toCandles(
+            market.byId.get(stockId)!.prices,
+            timeframe.ticks,
+            tickStartTime(market.baseTick, game.epoch),
+        );
+        // 오래된 기록을 버리면 앞쪽 캔들이 빠지므로 전체를 다시 올린다.
+        const key = `${stockId}-${timeframe.id}-${market.baseTick}`;
         const loaded = loadedRef.current;
 
         if (loaded?.key === key) {

@@ -84,7 +84,7 @@ class GameStore {
         const loaded = loadSave() ?? newSave(now);
         const tick = tickIndexAt(now, loaded.epoch);
         this.save = scheduleLatestVersion(loaded, tick);
-        this.market = new Market(this.save.worldSeed, this.save.paramSchedule, tick);
+        this.market = new Market(this.save.worldSeed, this.save.paramSchedule, tick, this.save.marketSnapshot);
         this.snapshot = { tick: this.market.tick, account: this.save.account, away: null };
         this.sync();
     }
@@ -136,6 +136,8 @@ class GameStore {
             account = result.account;
             this.unseenTrades.push(...result.trades);
         }
+        // 지난 틱으로 주문을 다 처리한 뒤에야 오래된 기록을 버릴 수 있다.
+        this.market.trimHistory();
 
         let away = this.snapshot.away;
         const value = totalValue(account, (id) => this.market.price(id, target));
@@ -186,8 +188,8 @@ class GameStore {
     private commit(save: SaveData, away: AwayReport | null) {
         // 새로고침 직전에 타이머가 돌아도 새 저장을 덮어쓰지 않게 한다.
         if (this.resetting) return;
-        this.save = save;
-        writeSave(save);
+        this.save = { ...save, marketSnapshot: this.market.snapshot };
+        writeSave(this.save);
         this.snapshot = { tick: this.market.tick, account: save.account, away };
         this.emit();
     }
