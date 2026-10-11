@@ -1,3 +1,5 @@
+import { STOCK_BY_ID } from './stocks.ts';
+
 export const START_CASH = 10_000_000;
 /** 매수가와 매도가의 차이. 호가창이 없는 대신 사고팔 때 비용이 생기게 한다 */
 export const SPREAD = 0.001;
@@ -95,6 +97,18 @@ export function availableCash(account: Account): number {
     return account.cash - reserved;
 }
 
+/**
+ * 더 살 수 있는 수량. 한 사람이 유통 주식보다 많이 가질 수는 없다.
+ * 걸어 둔 매수 주문도 체결되면 보유가 되므로 함께 뺀다.
+ */
+export function buyableShares(account: Account, stockId: string): number {
+    const pending = account.orders
+        .filter((o) => o.side === 'buy' && o.stockId === stockId)
+        .reduce((sum, o) => sum + o.qty, 0);
+    const held = account.holdings[stockId]?.qty ?? 0;
+    return Math.max(0, STOCK_BY_ID.get(stockId)!.floatShares - held - pending);
+}
+
 export function availableShares(account: Account, stockId: string): number {
     const reserved = account.orders
         .filter((o) => o.side === 'sell' && o.stockId === stockId)
@@ -155,8 +169,13 @@ export function marketOrder(
     const fillPrice = side === 'buy' ? askPrice(price) : bidPrice(price);
     if (side === 'buy' && buyReserve(qty, fillPrice) > availableCash(account))
         return { ok: false, reason: '주문 가능 금액이 부족해요' };
+    if (side === 'buy' && qty > buyableShares(account, stockId))
+        return {
+            ok: false,
+            reason: `유통 주식까지만 살 수 있어요. 지금 ${buyableShares(account, stockId).toLocaleString('ko-KR')}주 더 살 수 있어요`,
+        };
     if (side === 'sell' && qty > availableShares(account, stockId))
-        return { ok: false, reason: '매도 가능 수량이 부족해요' };
+        return { ok: false, reason: '판매 가능 수량이 부족해요' };
 
     const { account: next, trade } = applyFill(account, { stockId, side, kind: 'market', qty, price: fillPrice, time });
     return { ok: true, account: next, trade };
@@ -176,8 +195,13 @@ export function placeLimitOrder(
         return { ok: false, reason: '가격은 1원 이상 정수로 입력해 주세요' };
     if (side === 'buy' && buyReserve(qty, limitPrice) > availableCash(account))
         return { ok: false, reason: '주문 가능 금액이 부족해요' };
+    if (side === 'buy' && qty > buyableShares(account, stockId))
+        return {
+            ok: false,
+            reason: `유통 주식까지만 살 수 있어요. 지금 ${buyableShares(account, stockId).toLocaleString('ko-KR')}주 더 살 수 있어요`,
+        };
     if (side === 'sell' && qty > availableShares(account, stockId))
-        return { ok: false, reason: '매도 가능 수량이 부족해요' };
+        return { ok: false, reason: '판매 가능 수량이 부족해요' };
 
     const order: LimitOrder = { id: crypto.randomUUID(), stockId, side, qty, limitPrice, createdAt: time };
     return { ok: true, account: { ...account, orders: [...account.orders, order] }, trade: null };

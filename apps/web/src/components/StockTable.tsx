@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
-import { changeClass, num, percent, signedPercent, signedWon } from '../format.ts';
+import { bigWon, changeClass, num, percent, signedPercent } from '../format.ts';
 import { quoteOf } from '../game/quotes.ts';
-import { STOCKS } from '../game/stocks.ts';
+import { SECTOR_NAMES, STOCKS } from '../game/stocks.ts';
 import { game, useGame } from '../game/store.ts';
 import { stockHref } from '../router.ts';
 import { Panel } from './Panel.tsx';
@@ -14,37 +14,94 @@ const SORTS = [
     { id: 'rise', label: '상승' },
     { id: 'fall', label: '하락' },
     { id: 'dividend', label: '배당' },
+    { id: 'cap', label: '시총' },
 ] as const;
 type SortId = (typeof SORTS)[number]['id'];
 
 const ROW_GRID =
-    'grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[1.5rem_minmax(0,1fr)_6.5rem_4rem_4rem_5.5rem_5.5rem]';
+    'grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[1.5rem_minmax(0,1fr)_6rem_3.75rem_3.75rem_4.75rem_3.25rem_4.5rem]';
 
-/** 1·2시간 등락은 비율만 짧게 보여준다. 24시간 등락은 금액까지 따로 보여준다 */
-function RateCell({ rate }: { rate: number }) {
+/** 종목 화면에 갔다 돌아와도 고른 업종이 남도록 탭을 닫기 전까지만 기억한다 */
+const SECTOR_KEY = 'gaemigul:sector';
+function readSector(): string | null {
+    try {
+        const saved = sessionStorage.getItem(SECTOR_KEY);
+        return saved && SECTOR_NAMES.includes(saved) ? saved : null;
+    } catch {
+        return null;
+    }
+}
+function writeSector(sector: string | null) {
+    try {
+        if (sector) sessionStorage.setItem(SECTOR_KEY, sector);
+        else sessionStorage.removeItem(SECTOR_KEY);
+    } catch {
+        // 저장이 막혀 있어도 탭은 그대로 동작한다.
+    }
+}
+
+interface SectorTabProps {
+    label: string;
+    /** 업종 종목들의 24시간 등락률 평균. 전체 탭은 없음 */
+    rate?: number;
+    selected: boolean;
+    onSelect: () => void;
+}
+
+function SectorTab({ label, rate, selected, onSelect }: SectorTabProps) {
     return (
-        <span className={`hidden text-right text-sm font-semibold tabular-nums sm:block ${changeClass(rate)}`}>
-            {signedPercent(rate)}
-        </span>
+        <button
+            type="button"
+            aria-pressed={selected}
+            onClick={onSelect}
+            className="shrink-0 rounded-full border border-line px-3 py-1.5 text-sm text-muted hover:bg-surface-2 aria-pressed:border-fg aria-pressed:bg-fg aria-pressed:font-semibold aria-pressed:text-surface"
+        >
+            {label}
+            {rate !== undefined && (
+                <span className={`ml-1 text-xs tabular-nums ${selected ? '' : changeClass(rate)}`}>
+                    {signedPercent(rate, 1)}
+                </span>
+            )}
+        </button>
     );
+}
+
+/** 넓은 화면에서만 보이는 숫자 칸 */
+function Cell({ className = '', children }: { className?: string; children: ReactNode }) {
+    return <span className={`hidden text-right text-sm tabular-nums sm:block ${className}`}>{children}</span>;
 }
 
 export function StockTable() {
     const { account } = useGame();
     const [sort, setSort] = useState<SortId>('default');
+    const [sector, setSector] = useState<string | null>(readSector);
 
-    const rows = STOCKS.map((stock) => ({
+    const selectSector = (next: string | null) => {
+        setSector(next);
+        writeSector(next);
+    };
+
+    const allRows = STOCKS.map((stock) => ({
         stock,
         quote: quoteOf(game.market, stock.id),
         dividend: game.dividendOf(stock.id),
     }));
-    if (sort === 'rise') rows.sort((a, b) => b.quote.changeRate - a.quote.changeRate);
-    if (sort === 'fall') rows.sort((a, b) => a.quote.changeRate - b.quote.changeRate);
+    /** 업종의 3시간 등락률. 실제 업종지수처럼 시가총액이 큰 회사의 등락을 더 크게 반영한다 */
+    const sectorRate = (name: string) => {
+        const members = allRows.filter((r) => r.stock.sector === name);
+        const now = members.reduce((sum, r) => sum + r.quote.marketCap, 0);
+        const before = members.reduce((sum, r) => sum + r.stock.shares * r.quote.price3hAgo, 0);
+        return now / before - 1;
+    };
+    const rows = sector ? allRows.filter((r) => r.stock.sector === sector) : allRows;
+    if (sort === 'rise') rows.sort((a, b) => b.quote.changeRate3h - a.quote.changeRate3h);
+    if (sort === 'fall') rows.sort((a, b) => a.quote.changeRate3h - b.quote.changeRate3h);
     if (sort === 'dividend') rows.sort((a, b) => b.dividend.yield - a.dividend.yield);
+    if (sort === 'cap') rows.sort((a, b) => b.quote.marketCap - a.quote.marketCap);
 
     return (
         <Panel
-            title="전체 종목"
+            title={sector ? `${sector} 종목` : '전체 종목'}
             action={
                 <fieldset className="flex gap-1">
                     <legend className="sr-only">정렬</legend>
@@ -62,14 +119,28 @@ export function StockTable() {
                 </fieldset>
             }
         >
+            <fieldset className="-mx-5 mb-3 flex min-w-0 [scrollbar-width:none] gap-1.5 overflow-x-auto px-5 pb-1 sm:flex-wrap sm:overflow-visible">
+                <legend className="sr-only">업종</legend>
+                <SectorTab label="전체" selected={sector === null} onSelect={() => selectSector(null)} />
+                {SECTOR_NAMES.map((name) => (
+                    <SectorTab
+                        key={name}
+                        label={name}
+                        rate={sectorRate(name)}
+                        selected={sector === name}
+                        onSelect={() => selectSector(name)}
+                    />
+                ))}
+            </fieldset>
             <div className={`${ROW_GRID} border-b border-line px-2 pb-2 text-xs text-faint`}>
                 <span className="text-center">#</span>
                 <span>종목</span>
                 <span className="text-right">현재가</span>
                 <span className="hidden text-right sm:block">1시간</span>
-                <span className="hidden text-right sm:block">2시간</span>
-                <span className="hidden text-right sm:block">24시간</span>
-                <span className="hidden text-right sm:block">24시간 흐름</span>
+                <span className="hidden text-right sm:block">3시간</span>
+                <span className="hidden text-right sm:block">시총</span>
+                <span className="hidden text-right sm:block">배당</span>
+                <span className="hidden text-right sm:block">3시간 흐름</span>
             </div>
             <ol className="-mx-2 mt-1">
                 {rows.map(({ stock, quote, dividend }, i) => {
@@ -94,28 +165,26 @@ export function StockTable() {
                                         </span>
                                         <span className="text-xs text-faint">
                                             {stock.sector}
-                                            <span className="text-primary"> · 배당 {percent(dividend.yield)}</span>
+                                            <span className="text-primary sm:hidden">
+                                                {' '}
+                                                · 배당 {percent(dividend.yield)}
+                                            </span>
                                         </span>
                                     </span>
                                 </span>
                                 <span className="text-right tabular-nums">
                                     <span className="block text-[15px] font-semibold">{num(quote.price)}원</span>
-                                    <span className={`text-xs sm:hidden ${changeClass(quote.change)}`}>
-                                        {signedPercent(quote.changeRate)}
-                                    </span>
                                 </span>
-                                <RateCell rate={quote.changeRate1h} />
-                                <RateCell rate={quote.changeRate2h} />
-                                <span
-                                    className={`hidden text-right tabular-nums sm:block ${changeClass(quote.change)}`}
-                                >
-                                    <span className="block text-[15px] font-semibold">
-                                        {signedPercent(quote.changeRate)}
-                                    </span>
-                                    <span className="text-xs">{signedWon(quote.change)}</span>
-                                </span>
+                                <Cell className={`font-semibold ${changeClass(quote.changeRate1h)}`}>
+                                    {signedPercent(quote.changeRate1h)}
+                                </Cell>
+                                <Cell className={`font-semibold ${changeClass(quote.changeRate3h)}`}>
+                                    {signedPercent(quote.changeRate3h)}
+                                </Cell>
+                                <Cell className="text-muted">{bigWon(quote.marketCap)}</Cell>
+                                <Cell className="font-semibold text-primary">{percent(dividend.yield)}</Cell>
                                 <span className="hidden justify-end sm:flex">
-                                    <Sparkline points={quote.spark} />
+                                    <Sparkline points={quote.spark} width={64} />
                                 </span>
                             </a>
                         </li>

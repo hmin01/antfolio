@@ -7,10 +7,22 @@ import { Panel } from '../components/Panel.tsx';
 import { StockAvatar } from '../components/StockAvatar.tsx';
 import { StockChart } from '../components/StockChart.tsx';
 import { TradeRow } from '../components/TradeRow.tsx';
-import { changeClass, changeText, duration, num, percent, signedPercent, signedWon, won } from '../format.ts';
+import {
+    bigWon,
+    changeClass,
+    changeText,
+    duration,
+    num,
+    percent,
+    sharePercent,
+    signedPercent,
+    signedWon,
+    won,
+} from '../format.ts';
+import { buyableShares } from '../game/account.ts';
 import { DIVIDEND_PERIOD_TICKS, MAX_DIVIDEND_YIELD, nextDividend } from '../game/dividends.ts';
 import { quoteOf } from '../game/quotes.ts';
-import { STOCK_BY_ID } from '../game/stocks.ts';
+import { sizeClass, STOCK_BY_ID } from '../game/stocks.ts';
 import { game, useGame } from '../game/store.ts';
 import { HOME_HREF } from '../router.ts';
 
@@ -32,6 +44,18 @@ function RangeBar({ low, high, price }: { low: number; high: number; price: numb
                 <span className="text-down">{num(low)}</span>
                 <span className="text-up">{num(high)}</span>
             </div>
+        </div>
+    );
+}
+
+/** 시가총액과 규모 구분, 발행 주식 수 */
+function MarketCapSummary({ stockId, marketCap }: { stockId: string; marketCap: number }) {
+    const stock = STOCK_BY_ID.get(stockId)!;
+    return (
+        <div className="leading-tight">
+            <p className="text-xs text-faint">시가총액 · {sizeClass(marketCap)}</p>
+            <p className="mt-1 text-lg font-bold tabular-nums">{bigWon(marketCap)}</p>
+            <p className="text-xs text-muted tabular-nums">발행 {num(stock.shares)}주</p>
         </div>
     );
 }
@@ -90,6 +114,7 @@ function StockHeader({ stockId }: { stockId: string }) {
                 </div>
             </div>
             <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+                <MarketCapSummary stockId={stockId} marketCap={quote.marketCap} />
                 <DividendSummary stockId={stockId} />
                 <RangeBar low={quote.low} high={quote.high} price={quote.price} />
             </div>
@@ -104,6 +129,7 @@ function StockActivity({ stockId }: { stockId: string }) {
     const orders = account.orders.filter((o) => o.stockId === stockId);
     const trades = account.trades.filter((t) => t.stockId === stockId).slice(0, 20);
     const price = game.market.price(stockId);
+    const stock = STOCK_BY_ID.get(stockId)!;
     const info = game.dividendOf(stockId);
     const dividend = holding
         ? nextDividend(holding, account.dividendTick ?? game.market.tick, game.market.tick, info.dps, price)
@@ -123,6 +149,14 @@ function StockActivity({ stockId }: { stockId: string }) {
                         <span className="font-semibold text-up">+{won(dividend.expected)}</span>
                     </span>
                 )}
+            </p>
+            <p className="mb-3 text-sm text-muted tabular-nums">
+                지분율 <span className="font-semibold text-fg">{sharePercent((holding?.qty ?? 0) / stock.shares)}</span>
+                <span className="text-faint">
+                    {' '}
+                    · 유통 주식 {num(stock.floatShares)}주까지 가질 수 있고, 지금 {num(buyableShares(account, stockId))}
+                    주 더 살 수 있어요
+                </span>
             </p>
             {holding ? (
                 <dl className="grid grid-cols-2 gap-3 rounded-xl bg-surface-2 p-4 sm:grid-cols-4">

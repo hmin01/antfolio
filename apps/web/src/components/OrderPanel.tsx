@@ -6,6 +6,7 @@ import {
     availableCash,
     availableShares,
     bidPrice,
+    buyableShares,
     feeFor,
     maxBuyQty,
     priceStep,
@@ -95,7 +96,7 @@ export function OrderPanel({ stockId }: { stockId: string }) {
     const maxQty =
         side === 'buy'
             ? unitPrice > 0
-                ? maxBuyQty(availableCash(account), unitPrice)
+                ? Math.min(maxBuyQty(availableCash(account), unitPrice), buyableShares(account, stockId))
                 : 0
             : availableShares(account, stockId);
     const amount = qty > 0 && unitPrice > 0 ? qty * unitPrice : 0;

@@ -9,6 +9,10 @@ export interface StockDef {
     /** 기본 배당률(3시간). 첫 주당 배당금 = 처음 가격 × 이 값. 이후 배당 공시로 주당 배당금이 바뀐다 */
     dividendRate: number;
     initialPrice: number;
+    /** 발행 주식 수. 시가총액 = 발행 주식 수 × 주가 */
+    shares: number;
+    /** 시장에서 거래되는 유통 주식 수. 한 사람이 가질 수 있는 최대 수량이다 */
+    floatShares: number;
     personality: Personality;
 }
 
@@ -59,6 +63,78 @@ const SECTORS: Record<string, { color: string; personality: Personality }> = {
 };
 
 /**
+ * 처음 가격 기준 시가총액(조 원). 발행 주식 수를 정하는 데만 쓰고, 이후 시가총액은 주가에 따라 움직인다.
+ * 가격이 거친 종목일수록 작은 회사로 두었다. 개미전자가 300조로 가장 크고 알방셀이 3천억으로 가장 작다.
+ */
+const MARKET_CAP_JO: Record<string, number> = {
+    gmj: 300,
+    ajm: 120,
+    dgc: 3,
+    jhs: 0.8,
+    cgt: 5,
+    gmb: 80,
+    sgj: 25,
+    ygm: 4,
+    ywb: 6,
+    gsj: 40,
+    ksb: 2,
+    abs: 0.3,
+    bjb: 60,
+    gcj: 4,
+    ddm: 8,
+    hgm: 50,
+    gmc: 35,
+    ggb: 2,
+    gmk: 30,
+    ggj: 25,
+    ywl: 12,
+    gsc: 3,
+    agh: 15,
+    prm: 20,
+    syc: 6,
+    mrh: 30,
+    kts: 25,
+    dds: 2,
+    ddj: 35,
+    nyj: 5,
+    igc: 2,
+    gtg: 4,
+    tns: 0.5,
+    dgt: 6,
+    jdt: 15,
+    gds: 3,
+    jdm: 4,
+    bsn: 1.5,
+    gmm: 5,
+    mig: 1,
+    bjj: 8,
+    gtm: 1.5,
+    dsg: 12,
+    gns: 1,
+    gmt: 25,
+    ggs: 40,
+    hde: 1.2,
+    hbb: 4,
+    ngm: 9,
+    hrm: 6,
+};
+
+/** 유통 주식 비율. 큰 회사일수록 그룹·최대주주 지분이 많아 시장에 풀린 주식이 적다 */
+function floatRatio(capJo: number): number {
+    if (capJo >= 50) return 0.45;
+    if (capJo >= 10) return 0.55;
+    if (capJo >= 1) return 0.65;
+    return 0.7;
+}
+
+/** 시가총액 규모 구분 */
+export function sizeClass(marketCap: number): '대형주' | '중형주' | '소형주' {
+    if (marketCap >= 10e12) return '대형주';
+    if (marketCap >= 1e12) return '중형주';
+    return '소형주';
+}
+
+/**
  * 기본 배당률은 업종마다 범위를 두고, 같은 업종이면 가격이 얌전한 종목일수록 높게 줬다.
  * 금융·통신 4.5~6%, 식품·유통·에너지 3.5~5%, 자동차·철강·화학·건설·운송 2.5~4%,
  * 반도체·조선·인터넷·엔터 1.5~3%, 2차전지·바이오·게임 1~2%
@@ -72,6 +148,8 @@ function stock(
     personality?: Personality,
 ): StockDef {
     const s = SECTORS[sector]!;
+    const capJo = MARKET_CAP_JO[id]!;
+    const shares = Math.round((capJo * 1e12) / initialPrice);
     return {
         id,
         name,
@@ -79,6 +157,8 @@ function stock(
         color: s.color,
         dividendRate,
         initialPrice,
+        shares,
+        floatShares: Math.floor(shares * floatRatio(capJo)),
         personality: personality ?? s.personality,
     };
 }
@@ -158,3 +238,6 @@ export const STOCKS: StockDef[] = [
 ];
 
 export const STOCK_BY_ID = new Map(STOCKS.map((s) => [s.id, s]));
+
+/** 업종 이름. 목록의 업종 탭 순서로 쓴다 */
+export const SECTOR_NAMES = Object.keys(SECTORS);
