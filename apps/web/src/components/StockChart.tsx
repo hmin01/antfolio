@@ -11,21 +11,12 @@ import {
     type UTCTimestamp,
 } from 'lightweight-charts';
 
-import { TICKS_PER_DAY, toCandles, type Candle } from '@gaemigul/queen';
+import { TICKS_PER_DAY, TIMEFRAMES, toCandles, type Candle, type TimeframeId } from '@gaemigul/queen';
 
 import { changeClass, dateTime, DOWN_COLOR, num, signedPercent, UP_COLOR } from '../format.ts';
 import { roundPrice } from '../game/market.ts';
 import { STOCK_BY_ID } from '../game/stocks.ts';
 import { game, useGame } from '../game/store.ts';
-
-const TIMEFRAMES = [
-    { id: '15s', label: '15초', ticks: 1 },
-    { id: '1m', label: '1분', ticks: 4 },
-    { id: '5m', label: '5분', ticks: 20 },
-    { id: '1h', label: '1시간', ticks: 240 },
-    { id: '1d', label: '1일', ticks: TICKS_PER_DAY },
-] as const;
-type TimeframeId = (typeof TIMEFRAMES)[number]['id'];
 
 /** 처음 열거나 단위를 바꿨을 때 보여줄 캔들 수 */
 const VISIBLE_CANDLES = 120;

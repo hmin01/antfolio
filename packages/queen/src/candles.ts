@@ -11,7 +11,7 @@ export interface Candle {
 
 /**
  * 틱 가격을 `ticksPerCandle`개씩 묶어 캔들로 만든다.
- * 시가는 직전 캔들의 종가라서 15초 캔들도 몸통이 생긴다. 마지막 캔들은 덜 찼어도 포함한다.
+ * 시가는 직전 캔들의 종가라서 한 틱짜리 캔들도 몸통이 생긴다. 마지막 캔들은 덜 찼어도 포함한다.
  */
 export function toCandles(prices: ArrayLike<number>, ticksPerCandle: number, epoch: number): Candle[] {
     const candles: Candle[] = [];

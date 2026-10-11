@@ -47,7 +47,7 @@ function nextRegime(rng: Rng, current: Regime, params: EngineParams): Regime {
     return others[Math.floor(rng.next() * others.length)]!;
 }
 
-/** 한 틱(15초) 진행한 다음 상태. 같은 시드와 상태면 항상 같은 결과가 나온다. */
+/** 한 틱 진행한 다음 상태. 같은 시드와 상태면 항상 같은 결과가 나온다. */
 export function step(state: EngineState, params: EngineParams, seed: number): EngineState {
     const tick = state.tick + 1;
     const rng = rngForTick(seed, tick);

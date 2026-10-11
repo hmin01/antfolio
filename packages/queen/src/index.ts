@@ -22,3 +22,4 @@ export {
     type SimulationResult,
 } from './engine.ts';
 export { toCandles, type Candle } from './candles.ts';
+export { TIMEFRAMES, type TimeframeId } from './timeframes.ts';

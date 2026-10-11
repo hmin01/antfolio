@@ -1,10 +1,12 @@
 import type { Account } from './account.ts';
 import type { ParamSchedule } from './market.ts';
 
-const KEY = 'gaemigul:save:v1';
+// 틱 간격이 15초에서 10초로 바뀌면서 예전 저장의 가격 기록은 이어갈 수 없어 새 키를 쓴다.
+const KEY = 'gaemigul:save:v2';
+const OLD_KEYS = ['gaemigul:save:v1'];
 
 export interface SaveData {
-    version: 1;
+    version: 2;
     worldSeed: number;
     /** 시장이 시작된 시각. 처음 접속 3일 전 자정으로 잡아 시작부터 차트에 과거가 있게 한다 */
     epoch: number;
@@ -20,12 +22,11 @@ export interface SaveData {
 
 export function loadSave(): SaveData | null {
     try {
+        for (const key of OLD_KEYS) localStorage.removeItem(key);
         const raw = localStorage.getItem(KEY);
         if (!raw) return null;
         const data = JSON.parse(raw) as SaveData;
-        if (data.version !== 1) return null;
-        // 설정 버전이 생기기 전의 저장은 처음부터 v1으로 움직였다.
-        return { ...data, paramSchedule: data.paramSchedule ?? [{ versionId: 'v1', fromTick: 0 }] };
+        return data.version === 2 ? data : null;
     } catch {
         return null;
     }

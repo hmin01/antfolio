@@ -1,6 +1,15 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 
-import { DEFAULT_PARAMS, REGIMES, simulate, TICK_MS, TICKS_PER_DAY, toCandles } from '@gaemigul/queen';
+import {
+    DEFAULT_PARAMS,
+    REGIMES,
+    simulate,
+    TICK_MS,
+    TICKS_PER_DAY,
+    TIMEFRAMES,
+    toCandles,
+    type TimeframeId,
+} from '@gaemigul/queen';
 
 import { ParamPanel } from './components/ParamPanel.tsx';
 import { PriceChart, type RegimeBand } from './components/PriceChart.tsx';
@@ -10,15 +19,6 @@ import { computeStats } from './stats.ts';
 
 /** 시뮬레이션 시작 시각. 로컬 자정에 맞춰야 일봉 경계가 하루와 일치한다. */
 const EPOCH = new Date(2026, 0, 1).getTime();
-
-const TIMEFRAMES = [
-    { id: '15s', label: '15초', ticks: 1 },
-    { id: '1m', label: '1분', ticks: 4 },
-    { id: '5m', label: '5분', ticks: 20 },
-    { id: '1h', label: '1시간', ticks: 240 },
-    { id: '1d', label: '1일', ticks: TICKS_PER_DAY },
-] as const;
-type TimeframeId = (typeof TIMEFRAMES)[number]['id'];
 
 const randomSeed = () => Math.floor(Math.random() * 2 ** 31);
 

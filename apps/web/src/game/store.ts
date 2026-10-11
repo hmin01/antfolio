@@ -18,8 +18,8 @@ import {
 import { Market } from './market.ts';
 import { loadSave, writeSave, type SaveData } from './storage.ts';
 
-/** 이 틱 수(5분) 이상 자리를 비웠다 돌아오면 요약을 보여준다 */
-const AWAY_MIN_TICKS = 20;
+/** 5분 이상 자리를 비웠다 돌아오면 요약을 보여준다 */
+const AWAY_MIN_TICKS = 300_000 / TICK_MS;
 /** 처음 접속하면 며칠 전부터 시장이 열려 있던 것으로 만든다 */
 const PREHISTORY_DAYS = 3;
 /** 새 엔진 설정을 발견하면 이만큼 뒤의 틱부터 적용한다. 이미 본 가격이 바뀌지 않게 하는 여유 */
@@ -44,7 +44,7 @@ function newSave(now: number): SaveData {
     const epoch = new Date(today.getFullYear(), today.getMonth(), today.getDate() - PREHISTORY_DAYS).getTime();
     const tick = tickIndexAt(now, epoch);
     return {
-        version: 1,
+        version: 2,
         worldSeed: crypto.getRandomValues(new Uint32Array(1))[0]!,
         epoch,
         paramSchedule: [{ versionId: LATEST_VERSION.id, fromTick: 0 }],
