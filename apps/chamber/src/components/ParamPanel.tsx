@@ -1,5 +1,5 @@
-import { DEFAULT_PARAMS, REGIMES, type EngineParams, type Regime, type RegimeParams } from '@gaemigul/queen';
-import type { ReactNode } from 'react';
+import { LATEST_VERSION, PARAM_VERSIONS, REGIMES, type EngineParams, type Regime, type RegimeParams } from '@gaemigul/queen';
+import { useState, type ReactNode } from 'react';
 import { percent, signedPercent } from '../format.ts';
 import { REGIME_COLORS, REGIME_LABELS } from '../regimes.ts';
 import { Slider } from './Slider.tsx';
@@ -18,22 +18,58 @@ function Section({ title, children }: { title: ReactNode; children: ReactNode })
   );
 }
 
+/** params.ts의 PARAM_VERSIONS 맨 뒤에 그대로 붙여 넣을 수 있는 코드 */
+function versionSnippet(id: string, params: EngineParams): string {
+  const body = JSON.stringify(params, null, 2)
+    .replace(/"(\w+)":/g, '$1:')
+    .replace(/\n/g, '\n    ');
+  return `  {\n    id: '${id}',\n    params: ${body},\n  },\n`;
+}
+
 export function ParamPanel({ params, onChange }: ParamPanelProps) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const changed = JSON.stringify(params) !== JSON.stringify(LATEST_VERSION.params);
+  const nextId = `v${PARAM_VERSIONS.length + 1}`;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(versionSnippet(nextId, params));
+      setCopied(`${nextId}로 복사했어요. packages/queen/src/params.ts의 PARAM_VERSIONS 맨 뒤에 붙여 넣으면, 게임이 다음에 열릴 때 1분 뒤부터 적용돼요.`);
+    } catch {
+      setCopied('클립보드에 복사하지 못했어요. 브라우저 권한을 확인해 주세요.');
+    }
+  };
+
   const set = (patch: Partial<EngineParams>) => onChange({ ...params, ...patch });
   const setRegime = (regime: Regime, patch: Partial<RegimeParams>) =>
     set({ regimes: { ...params.regimes, [regime]: { ...params.regimes[regime], ...patch } } });
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">엔진 파라미터</h2>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">엔진 파라미터</h2>
+          <button
+            type="button"
+            onClick={() => onChange(LATEST_VERSION.params)}
+            className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+          >
+            게임 설정으로
+          </button>
+        </div>
+        <p className="text-xs text-zinc-500">
+          지금 게임 설정: {LATEST_VERSION.id}
+          {changed && <span className="text-amber-400"> · 바꾼 값이 있어요</span>}
+        </p>
         <button
           type="button"
-          onClick={() => onChange(DEFAULT_PARAMS)}
-          className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+          onClick={copy}
+          disabled={!changed}
+          className="w-full rounded-md bg-zinc-100 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-white disabled:bg-zinc-800 disabled:text-zinc-500"
         >
-          기본값으로
+          {nextId}로 설정 복사
         </button>
+        {copied && <output className="block text-xs text-emerald-400">{copied}</output>}
       </div>
 
       <Section title="기본">

@@ -34,6 +34,7 @@ export function Header() {
   const { tick, account } = useGame();
   const value = totalValue(account, (id) => game.market.price(id));
   const profit = value / START_CASH - 1;
+  const upcoming = game.upcomingVersion;
 
   return (
     <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
@@ -54,6 +55,7 @@ export function Header() {
           </div>
         </dl>
         <div className="ml-auto flex items-center gap-4">
+          {upcoming && <span className="text-xs text-amber-400">곧 새 시장 설정({upcoming.versionId})이 적용돼요</span>}
           <Countdown tick={tick} />
           <button type="button" onClick={confirmReset} className="text-xs text-zinc-500 hover:text-zinc-300">
             처음부터

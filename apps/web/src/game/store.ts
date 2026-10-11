@@ -1,4 +1,4 @@
-import { tickIndexAt, tickStartTime } from '@gaemigul/queen';
+import { LATEST_VERSION, PARAM_VERSIONS, TICK_MS, tickIndexAt, tickStartTime } from '@gaemigul/queen';
 import { useSyncExternalStore } from 'react';
 import {
   cancelOrder,
@@ -20,6 +20,8 @@ import { loadSave, writeSave, type SaveData } from './storage.ts';
 const AWAY_MIN_TICKS = 20;
 /** 처음 접속하면 며칠 전부터 시장이 열려 있던 것으로 만든다 */
 const PREHISTORY_DAYS = 3;
+/** 새 엔진 설정을 발견하면 이만큼 뒤의 틱부터 적용한다. 이미 본 가격이 바뀌지 않게 하는 여유 */
+const NEW_VERSION_DELAY_TICKS = 60_000 / TICK_MS;
 
 export interface AwayReport {
   fromTick: number;
@@ -43,11 +45,27 @@ function newSave(now: number): SaveData {
     version: 1,
     worldSeed: crypto.getRandomValues(new Uint32Array(1))[0]!,
     epoch,
+    paramSchedule: [{ versionId: LATEST_VERSION.id, fromTick: 0 }],
     account: createAccount(),
     processedTick: tick,
     lastSeenTick: tick,
     lastSeenValue: START_CASH,
   };
+}
+
+/**
+ * 저장된 설정 일정을 코드의 설정 버전에 맞춘다.
+ * - 코드에 없는 버전은 일정에서 뺀다. 그 버전은 원래 계산에도 쓰일 수 없었다.
+ * - 처음 보는 최신 버전은 지금부터 1분 뒤 틱부터 적용한다. 이미 지나간 틱은 예전 설정 그대로라 본 적 있는 가격이 바뀌지 않는다.
+ */
+function scheduleLatestVersion(save: SaveData, tick: number): SaveData {
+  const known = new Set(PARAM_VERSIONS.map((v) => v.id));
+  let schedule = save.paramSchedule.filter((s) => known.has(s.versionId));
+  if (schedule.length === 0) schedule = [{ versionId: PARAM_VERSIONS[0]!.id, fromTick: 0 }];
+  if (!schedule.some((s) => s.versionId === LATEST_VERSION.id)) {
+    schedule = [...schedule, { versionId: LATEST_VERSION.id, fromTick: tick + NEW_VERSION_DELAY_TICKS }];
+  }
+  return { ...save, paramSchedule: schedule };
 }
 
 class GameStore {
@@ -61,8 +79,10 @@ class GameStore {
 
   constructor() {
     const now = Date.now();
-    this.save = loadSave() ?? newSave(now);
-    this.market = new Market(this.save.worldSeed, tickIndexAt(now, this.save.epoch));
+    const loaded = loadSave() ?? newSave(now);
+    const tick = tickIndexAt(now, loaded.epoch);
+    this.save = scheduleLatestVersion(loaded, tick);
+    this.market = new Market(this.save.worldSeed, this.save.paramSchedule, tick);
     this.snapshot = { tick: this.market.tick, account: this.save.account, away: null };
     this.sync();
   }
@@ -76,6 +96,11 @@ class GameStore {
 
   get epoch() {
     return this.save.epoch;
+  }
+
+  /** 일정에 들어갔지만 아직 적용되기 전인 설정 버전 */
+  get upcomingVersion() {
+    return this.save.paramSchedule.find((s) => s.fromTick > this.market.tick) ?? null;
   }
 
   /** 다음 틱 경계마다 시장을 진행하고, 탭으로 돌아오면 바로 따라잡는다. */

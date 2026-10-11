@@ -24,15 +24,37 @@ export interface EngineParams {
   reversionHalfLifeDays: number;
 }
 
-export const DEFAULT_PARAMS: EngineParams = {
-  dailyVol: 0.03,
-  regimes: {
-    bull: { driftPerDay: 0.1, volScale: 0.9, meanHours: 8 },
-    bear: { driftPerDay: -0.12, volScale: 1.3, meanHours: 5 },
-    sideways: { driftPerDay: 0, volScale: 0.7, meanHours: 10 },
+export interface ParamVersion {
+  id: string;
+  params: EngineParams;
+}
+
+/**
+ * 게임에 내보낸 엔진 설정의 기록. 맨 뒤 버전이 지금 설정이다.
+ *
+ * 게임은 처음 보는 버전을 발견하면 그때부터 1분 뒤 틱부터 적용하고,
+ * 그 전의 가격은 예전 버전으로 다시 계산한다. 그래서 한 번 추가한 버전은 지우거나 고치지 말고,
+ * 바꾸고 싶으면 여왕의 방에서 "설정 복사"로 새 버전을 만들어 맨 뒤에 붙인다.
+ */
+export const PARAM_VERSIONS: readonly ParamVersion[] = [
+  {
+    id: 'v1',
+    params: {
+      dailyVol: 0.03,
+      regimes: {
+        bull: { driftPerDay: 0.1, volScale: 0.9, meanHours: 8 },
+        bear: { driftPerDay: -0.12, volScale: 1.3, meanHours: 5 },
+        sideways: { driftPerDay: 0, volScale: 0.7, meanHours: 10 },
+      },
+      clustering: { alpha: 0.03, beta: 0.965 },
+      tailDf: 5,
+      jumps: { perDay: 1, size: 0.03 },
+      reversionHalfLifeDays: 10,
+    },
   },
-  clustering: { alpha: 0.03, beta: 0.965 },
-  tailDf: 5,
-  jumps: { perDay: 1, size: 0.03 },
-  reversionHalfLifeDays: 10,
-};
+];
+
+export const LATEST_VERSION = PARAM_VERSIONS[PARAM_VERSIONS.length - 1]!;
+
+/** 지금 게임에 적용되는 설정 */
+export const DEFAULT_PARAMS: EngineParams = LATEST_VERSION.params;
