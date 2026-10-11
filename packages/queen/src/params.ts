@@ -38,23 +38,83 @@ export interface ParamVersion {
  */
 export const PARAM_VERSIONS: readonly ParamVersion[] = [
     {
+        // 실제 주식의 하루 흐름(하루 변동 약 3%, 8시간 남짓 이어지는 추세, 하루 한 번꼴 급등락)을
+        // 게임 1시간에 담았다. 실제 이틀치 등락이 게임 2시간에 지나간다.
         id: 'v1',
         params: {
-            dailyVol: 0.03,
+            dailyVol: 0.147,
             regimes: {
-                bull: { driftPerDay: 0.1, volScale: 0.9, meanHours: 8 },
-                bear: { driftPerDay: -0.12, volScale: 1.3, meanHours: 5 },
-                sideways: { driftPerDay: 0, volScale: 0.7, meanHours: 10 },
+                bull: { driftPerDay: 2.4, volScale: 0.9, meanHours: 0.33 },
+                bear: { driftPerDay: -2.88, volScale: 1.3, meanHours: 0.21 },
+                sideways: { driftPerDay: 0, volScale: 0.7, meanHours: 0.42 },
             },
-            clustering: { alpha: 0.03, beta: 0.965 },
+            clustering: { alpha: 0.02, beta: 0.9767 },
             tailDf: 5,
-            jumps: { perDay: 1, size: 0.03 },
-            reversionHalfLifeDays: 10,
+            jumps: { perDay: 24, size: 0.03 },
+            reversionHalfLifeDays: 0.42,
         },
     },
+    {
+        id: 'v2',
+        params: {
+            dailyVol: 0.294,
+            regimes: {
+                bull: {
+                    driftPerDay: 9.6,
+                    volScale: 0.9,
+                    meanHours: 0.0825,
+                },
+                bear: {
+                    driftPerDay: -11.52,
+                    volScale: 1.3,
+                    meanHours: 0.0525,
+                },
+                sideways: {
+                    driftPerDay: 0,
+                    volScale: 0.7,
+                    meanHours: 0.105,
+                },
+            },
+            clustering: {
+                alpha: 0.02,
+                beta: 0.9767,
+            },
+            tailDf: 5,
+            jumps: {
+                perDay: 96,
+                size: 0.03,
+            },
+            reversionHalfLifeDays: 0.105,
+        },
+    },
+    // @queen-versions-end 새 버전은 이 줄 위에 추가한다. 여왕의 방 "게임에 적용"도 이 줄을 기준으로 끼워 넣는다.
 ];
 
 export const LATEST_VERSION = PARAM_VERSIONS[PARAM_VERSIONS.length - 1]!;
 
 /** 지금 게임에 적용되는 설정 */
 export const DEFAULT_PARAMS: EngineParams = LATEST_VERSION.params;
+
+/**
+ * 같은 흐름을 `speed`배 빠르게 돌린다. 차트 모양은 그대로 두고 시간축만 압축하는 것이라
+ * 추세와 노이즈의 비율이 유지된다.
+ * - 시간 단위 값(국면 길이, 평균회귀 반감기)은 1/speed
+ * - 하루당 값(추세, 급등락 횟수)은 speed배, 변동성은 √speed배
+ * - 변동성 뭉침은 틱 단위 값이라 그대로 둔다. 압축하면 거의 바로 사라진다.
+ */
+export function compressTime(params: EngineParams, speed: number): EngineParams {
+    const regimes = Object.fromEntries(
+        REGIMES.map((r) => {
+            const { driftPerDay, volScale, meanHours } = params.regimes[r];
+            return [r, { driftPerDay: driftPerDay * speed, volScale, meanHours: meanHours / speed }];
+        }),
+    ) as EngineParams['regimes'];
+
+    return {
+        ...params,
+        dailyVol: params.dailyVol * Math.sqrt(speed),
+        regimes,
+        jumps: { ...params.jumps, perDay: params.jumps.perDay * speed },
+        reversionHalfLifeDays: params.reversionHalfLifeDays / speed,
+    };
+}
