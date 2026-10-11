@@ -1,5 +1,5 @@
 import type { Account } from './account.ts';
-import type { MarketSnapshot, ParamSchedule } from './market.ts';
+import type { EngineDays, ParamSchedule } from './market.ts';
 
 // 틱 간격이 15초에서 10초로 바뀌면서 예전 저장의 가격 기록은 이어갈 수 없어 새 키를 쓴다.
 const KEY = 'gaemigul:save:v2';
@@ -12,8 +12,8 @@ export interface SaveData {
     epoch: number;
     /** 엔진 설정 버전을 언제부터 적용하는지. 지나간 가격을 다시 계산할 때도 이 일정을 따른다 */
     paramSchedule: ParamSchedule;
-    /** 가격 기록의 첫 틱과 그때의 엔진 상태. 없으면 시장 시작 틱부터 계산한다 */
-    marketSnapshot?: MarketSnapshot | null;
+    /** 종목별 하루 경계의 엔진 상태. 다음에 열 때 여기서부터 계산한다. 없으면 시장 시작 틱부터 계산한다 */
+    engineDays?: EngineDays;
     account: Account;
     /** 지정가 주문 체결까지 처리한 마지막 틱 */
     processedTick: number;

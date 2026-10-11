@@ -25,7 +25,7 @@ export interface Quote {
 /** 화면에서 쓰는 "24시간 기준" 시세. 시장이 24시간 열려 있어 전일 종가 대신 24시간 전 가격과 비교한다. */
 export function quoteOf(market: Market, stockId: string): Quote {
     const end = market.tick;
-    const start = Math.max(market.baseTick, end - TICKS_PER_DAY);
+    const start = Math.max(market.windowStart, end - TICKS_PER_DAY);
 
     let high = -Infinity;
     let low = Infinity;

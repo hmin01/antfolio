@@ -20,6 +20,7 @@ import { Panel } from './Panel.tsx';
 
 /** 처음 열거나 단위를 바꿨을 때 보여줄 캔들 수 */
 const VISIBLE_CANDLES = 120;
+const MIN_VISIBLE_SLOTS = 30;
 
 const toChartTime = (ms: number) => (ms / 1000) as UTCTimestamp;
 const toDate = (time: Time) => new Date((time as number) * 1000);
@@ -141,15 +142,13 @@ export function StockChart({ stockId }: { stockId: string }) {
     // 종목이나 단위가 바뀌면 전체를 다시 올리고, 틱만 지나면 새로 생기거나 바뀐 캔들만 갱신한다.
     useEffect(() => {
         const series = seriesRef.current!;
-        // 기록은 baseTick부터 시작하므로 그만큼 뒤로 민 시각을 기준으로 캔들을 묶는다.
+        // 이 종목의 지난 기록을 채운 뒤, 기록이 시작하는 틱의 시각을 기준으로 캔들을 묶는다.
         const { market } = game;
-        const candles = toCandles(
-            market.byId.get(stockId)!.prices,
-            timeframe.ticks,
-            tickStartTime(market.baseTick, game.epoch),
-        );
-        // 오래된 기록을 버리면 앞쪽 캔들이 빠지므로 전체를 다시 올린다.
-        const key = `${stockId}-${timeframe.id}-${market.baseTick}`;
+        market.ensureHistory(stockId);
+        const { prices, startTick } = market.byId.get(stockId)!;
+        const candles = toCandles(prices, timeframe.ticks, tickStartTime(startTick, game.epoch));
+        // 기록의 시작이 바뀌면(오래된 기록 정리) 앞쪽 캔들이 달라지므로 전체를 다시 올린다.
+        const key = `${stockId}-${timeframe.id}-${startTick}`;
         const loaded = loadedRef.current;
 
         if (loaded?.key === key) {
@@ -157,7 +156,8 @@ export function StockChart({ stockId }: { stockId: string }) {
         } else {
             series.setData(candles.map(toBar));
             chartRef.current!.timeScale().setVisibleLogicalRange({
-                from: candles.length - VISIBLE_CANDLES,
+                // 캔들이 적을 때(1일봉 등) 120칸을 다 잡으면 오른쪽 끝에 몰리므로 최소 30칸만 잡는다.
+                from: candles.length - Math.max(Math.min(candles.length, VISIBLE_CANDLES), MIN_VISIBLE_SLOTS),
                 to: candles.length + 3,
             });
         }

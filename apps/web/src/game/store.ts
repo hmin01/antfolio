@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-import { LATEST_VERSION, PARAM_VERSIONS, TICK_MS, tickIndexAt, tickStartTime } from '@gaemigul/queen';
+import { LATEST_VERSION, PARAM_VERSIONS, TICK_MS, tickIndexAt, TICKS_PER_DAY, tickStartTime } from '@gaemigul/queen';
 
 import {
     cancelOrder,
@@ -84,7 +84,16 @@ class GameStore {
         const loaded = loadSave() ?? newSave(now);
         const tick = tickIndexAt(now, loaded.epoch);
         this.save = scheduleLatestVersion(loaded, tick);
-        this.market = new Market(this.save.worldSeed, this.save.paramSchedule, tick, this.save.marketSnapshot);
+        // 목록에는 최근 24시간이, 지정가 주문이 걸린 종목은 마지막으로 처리한 틱부터의 가격이 필요하다.
+        const { account, processedTick } = this.save;
+        const ordered = new Set(account.orders.map((o) => o.stockId));
+        this.market = new Market(
+            this.save.worldSeed,
+            this.save.paramSchedule,
+            tick,
+            this.save.engineDays ?? null,
+            (id) => (ordered.has(id) ? Math.min(processedTick, tick - TICKS_PER_DAY) : tick - TICKS_PER_DAY),
+        );
         this.snapshot = { tick: this.market.tick, account: this.save.account, away: null };
         this.sync();
     }
@@ -188,7 +197,7 @@ class GameStore {
     private commit(save: SaveData, away: AwayReport | null) {
         // 새로고침 직전에 타이머가 돌아도 새 저장을 덮어쓰지 않게 한다.
         if (this.resetting) return;
-        this.save = { ...save, marketSnapshot: this.market.snapshot };
+        this.save = { ...save, engineDays: this.market.engineDays() };
         writeSave(this.save);
         this.snapshot = { tick: this.market.tick, account: save.account, away };
         this.emit();
