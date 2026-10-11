@@ -45,6 +45,17 @@ export type OrderResult = { ok: true; account: Account; trade: Trade | null } | 
 
 export const createAccount = (): Account => ({ cash: START_CASH, holdings: {}, orders: [], trades: [] });
 
+/** 한국거래소 호가 단위. 지정가 입력의 -/+ 버튼이 이만큼씩 움직인다 */
+export function priceStep(price: number): number {
+    if (price < 2_000) return 1;
+    if (price < 5_000) return 5;
+    if (price < 20_000) return 10;
+    if (price < 50_000) return 50;
+    if (price < 200_000) return 100;
+    if (price < 500_000) return 500;
+    return 1_000;
+}
+
 export const askPrice = (price: number) => Math.ceil(price * (1 + SPREAD / 2));
 export const bidPrice = (price: number) => Math.max(1, Math.floor(price * (1 - SPREAD / 2)));
 export const feeFor = (amount: number) => Math.round(amount * FEE_RATE);

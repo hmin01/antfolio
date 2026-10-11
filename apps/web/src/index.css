@@ -1,9 +1,62 @@
 @import 'tailwindcss';
 
+/* 토스증권처럼 밝은 화면이 기본이고, 기기가 다크 모드면 어둡게 바뀐다. 차트도 이 값을 읽어 색을 맞춘다. */
 :root {
-    color-scheme: dark;
+    color-scheme: light;
+    --canvas: #f2f4f6;
+    --surface: #ffffff;
+    --surface-2: #f2f4f6;
+    --surface-3: #e5e8eb;
+    --fg: #191f28;
+    --muted: #4e5968;
+    --faint: #8b95a1;
+    --line: #e5e8eb;
+    --up: #f04452;
+    --down: #3182f6;
+    --primary: #3182f6;
+    --primary-hover: #1b64da;
+    --warn: #e08a00;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+        --canvas: #101013;
+        --surface: #17171c;
+        --surface-2: #22222a;
+        --surface-3: #2c2c35;
+        --fg: #e4e4e7;
+        --muted: #a1a1aa;
+        --faint: #71717a;
+        --line: #26262e;
+        --up: #f45866;
+        --down: #4c8dfa;
+        --primary: #3182f6;
+        --primary-hover: #4c94f8;
+        --warn: #f5a524;
+    }
+}
+
+@theme inline {
+    --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --color-canvas: var(--canvas);
+    --color-surface: var(--surface);
+    --color-surface-2: var(--surface-2);
+    --color-surface-3: var(--surface-3);
+    --color-fg: var(--fg);
+    --color-muted: var(--muted);
+    --color-faint: var(--faint);
+    --color-line: var(--line);
+    --color-up: var(--up);
+    --color-down: var(--down);
+    --color-primary: var(--primary);
+    --color-primary-hover: var(--primary-hover);
+    --color-warn: var(--warn);
 }
 
 body {
-    background-color: var(--color-zinc-950);
+    background-color: var(--canvas);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
 }

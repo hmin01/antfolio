@@ -1,6 +1,3 @@
-export const UP_COLOR = '#ef4444';
-export const DOWN_COLOR = '#3b82f6';
-
 export const num = (value: number) => Math.round(value).toLocaleString('ko-KR');
 
 export const won = (value: number) => `${num(value)}원`;
@@ -10,8 +7,11 @@ export const signedWon = (value: number) => `${value > 0 ? '+' : ''}${won(value)
 export const signedPercent = (ratio: number, digits = 2) => `${ratio > 0 ? '+' : ''}${(ratio * 100).toFixed(digits)}%`;
 
 /** 국내 관례대로 오르면 빨강, 내리면 파랑, 그대로면 기본 글자색 */
-export const changeClass = (value: number) =>
-    value > 0 ? 'text-red-400' : value < 0 ? 'text-blue-400' : 'text-zinc-300';
+export const changeClass = (value: number) => (value > 0 ? 'text-up' : value < 0 ? 'text-down' : 'text-fg');
+
+/** 등락 금액과 비율을 "+1,200원 (2.40%)"처럼 붙여 쓴다. 비율의 부호는 금액에 이미 있어 뺀다 */
+export const changeText = (amount: number, ratio: number) =>
+    `${signedWon(amount)} (${(Math.abs(ratio) * 100).toFixed(2)}%)`;
 
 export function duration(ms: number): string {
     const minutes = Math.floor(ms / 60_000);

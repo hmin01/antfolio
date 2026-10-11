@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
     CandlestickSeries,
     ColorType,
@@ -11,12 +11,12 @@ import {
     type UTCTimestamp,
 } from 'lightweight-charts';
 
-import { TICKS_PER_DAY, TIMEFRAMES, toCandles, type Candle, type TimeframeId } from '@gaemigul/queen';
+import { TIMEFRAMES, toCandles, type Candle, type TimeframeId } from '@gaemigul/queen';
 
-import { changeClass, dateTime, DOWN_COLOR, num, signedPercent, UP_COLOR } from '../format.ts';
+import { dateTime, num } from '../format.ts';
 import { roundPrice } from '../game/market.ts';
-import { STOCK_BY_ID } from '../game/stocks.ts';
 import { game, useGame } from '../game/store.ts';
+import { Panel } from './Panel.tsx';
 
 /** 처음 열거나 단위를 바꿨을 때 보여줄 캔들 수 */
 const VISIBLE_CANDLES = 120;
@@ -30,6 +30,29 @@ const toBar = (c: Candle) => ({
     low: roundPrice(c.low),
     close: roundPrice(c.close),
 });
+
+const DARK_QUERY = '(prefers-color-scheme: dark)';
+const subscribeScheme = (listener: () => void) => {
+    const media = window.matchMedia(DARK_QUERY);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+};
+/** 기기 테마가 바뀌면 다시 그리도록 지금 테마를 구독한다. */
+const useDarkScheme = () => useSyncExternalStore(subscribeScheme, () => window.matchMedia(DARK_QUERY).matches);
+
+/** index.css의 색 토큰. 차트는 캔버스라 CSS 클래스를 못 쓰고 값을 직접 넘긴다. */
+function themeColors() {
+    const style = getComputedStyle(document.documentElement);
+    const token = (name: string) => style.getPropertyValue(`--${name}`).trim();
+    return {
+        surface: token('surface'),
+        faint: token('faint'),
+        line: token('line'),
+        up: token('up'),
+        down: token('down'),
+        warn: token('warn'),
+    };
+}
 
 // lightweight-charts는 시간을 UTC로 표시하므로 로컬 시간으로 직접 포맷한다.
 function formatTickMark(time: Time, type: TickMarkType): string {
@@ -50,6 +73,7 @@ function formatTickMark(time: Time, type: TickMarkType): string {
 
 export function StockChart({ stockId }: { stockId: string }) {
     const { tick, account } = useGame();
+    const dark = useDarkScheme();
     const [timeframeId, setTimeframeId] = useState<TimeframeId>('1m');
     const [hovered, setHovered] = useState<ReturnType<typeof toBar> | null>(null);
 
@@ -60,20 +84,12 @@ export function StockChart({ stockId }: { stockId: string }) {
     const loadedRef = useRef<{ key: string; length: number } | null>(null);
 
     const timeframe = TIMEFRAMES.find((t) => t.id === timeframeId)!;
-    const stock = STOCK_BY_ID.get(stockId)!;
 
     useEffect(() => {
         const chart = createChart(containerRef.current!, {
             autoSize: true,
-            layout: {
-                background: { type: ColorType.Solid, color: '#09090b' },
-                textColor: '#a1a1aa',
-                attributionLogo: false,
-            },
-            grid: { vertLines: { color: '#18181b' }, horzLines: { color: '#18181b' } },
-            rightPriceScale: { borderColor: '#27272a' },
+            layout: { attributionLogo: false, fontFamily: getComputedStyle(document.body).fontFamily },
             timeScale: {
-                borderColor: '#27272a',
                 timeVisible: true,
                 secondsVisible: true,
                 tickMarkFormatter: formatTickMark,
@@ -81,11 +97,7 @@ export function StockChart({ stockId }: { stockId: string }) {
             localization: { locale: 'ko-KR', timeFormatter: (time: Time) => dateTime(toDate(time).getTime()) },
         });
         const series = chart.addSeries(CandlestickSeries, {
-            upColor: UP_COLOR,
-            downColor: DOWN_COLOR,
             borderVisible: false,
-            wickUpColor: UP_COLOR,
-            wickDownColor: DOWN_COLOR,
             priceFormat: { type: 'price', precision: 0, minMove: 1 },
         });
 
@@ -109,6 +121,22 @@ export function StockChart({ stockId }: { stockId: string }) {
         loadedRef.current = null;
         return () => chart.remove();
     }, []);
+
+    useEffect(() => {
+        const c = themeColors();
+        chartRef.current!.applyOptions({
+            layout: { background: { type: ColorType.Solid, color: c.surface }, textColor: c.faint },
+            grid: { vertLines: { color: c.line }, horzLines: { color: c.line } },
+            rightPriceScale: { borderColor: c.line },
+            timeScale: { borderColor: c.line },
+        });
+        seriesRef.current!.applyOptions({
+            upColor: c.up,
+            downColor: c.down,
+            wickUpColor: c.up,
+            wickDownColor: c.down,
+        });
+    }, [dark]);
 
     // 종목이나 단위가 바뀌면 전체를 다시 올리고, 틱만 지나면 새로 생기거나 바뀐 캔들만 갱신한다.
     useEffect(() => {
@@ -136,12 +164,13 @@ export function StockChart({ stockId }: { stockId: string }) {
     const orders = useMemo(() => account.orders.filter((o) => o.stockId === stockId), [account.orders, stockId]);
     useEffect(() => {
         const series = seriesRef.current!;
+        const c = themeColors();
         const lines: IPriceLine[] = [];
         if (holding) {
             lines.push(
                 series.createPriceLine({
                     price: holding.avgPrice,
-                    color: '#f59e0b',
+                    color: c.warn,
                     lineWidth: 1,
                     lineStyle: 2,
                     title: '평단',
@@ -152,32 +181,21 @@ export function StockChart({ stockId }: { stockId: string }) {
             lines.push(
                 series.createPriceLine({
                     price: o.limitPrice,
-                    color: o.side === 'buy' ? UP_COLOR : DOWN_COLOR,
+                    color: o.side === 'buy' ? c.up : c.down,
                     lineWidth: 1,
                     lineStyle: 1,
-                    title: `${o.side === 'buy' ? '매수' : '매도'} ${o.qty}주`,
+                    title: `${o.side === 'buy' ? '구매' : '판매'} ${o.qty}주`,
                 }),
             );
         }
         return () => lines.forEach((line) => series.removePriceLine(line));
-    }, [holding, orders]);
-
-    const price = game.market.price(stockId);
-    const change = price / game.market.price(stockId, tick - TICKS_PER_DAY) - 1;
+    }, [holding, orders, dark]);
 
     return (
-        <section aria-label={`${stock.name} 차트`} className="space-y-3">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h2 className="text-sm text-zinc-400">
-                        {stock.name} <span className="text-zinc-600">· {stock.sector}</span>
-                    </h2>
-                    <p className="font-mono text-2xl font-semibold tabular-nums">
-                        {num(price)}
-                        <span className={`ml-2 text-sm ${changeClass(change)}`}>{signedPercent(change)}</span>
-                    </p>
-                </div>
-                <fieldset className="flex rounded-md border border-zinc-700 p-0.5 text-sm">
+        <Panel
+            title="차트"
+            action={
+                <fieldset className="flex gap-0.5 rounded-lg bg-surface-2 p-0.5 text-sm">
                     <legend className="sr-only">캔들 단위</legend>
                     {TIMEFRAMES.map((t) => (
                         <button
@@ -185,34 +203,34 @@ export function StockChart({ stockId }: { stockId: string }) {
                             type="button"
                             aria-pressed={t.id === timeframeId}
                             onClick={() => setTimeframeId(t.id)}
-                            className={`rounded px-2.5 py-1 ${t.id === timeframeId ? 'bg-zinc-700 text-zinc-50' : 'text-zinc-400 hover:text-zinc-200'}`}
+                            className="rounded-md px-2.5 py-1 text-faint hover:text-fg aria-pressed:bg-surface aria-pressed:font-semibold aria-pressed:text-fg aria-pressed:shadow-sm"
                         >
                             {t.label}
                         </button>
                     ))}
                 </fieldset>
-            </div>
-
-            <div className="relative h-[360px] overflow-hidden rounded-lg border border-zinc-800 lg:h-[440px]">
+            }
+        >
+            <div className="relative h-[340px] lg:h-[420px]">
                 <div ref={containerRef} className="absolute inset-0" />
                 {hovered && (
-                    <div className="pointer-events-none absolute top-2 left-3 z-10 flex flex-wrap gap-x-3 font-mono text-xs text-zinc-400 tabular-nums">
+                    <div className="pointer-events-none absolute top-1 left-1 z-10 flex flex-wrap gap-x-3 rounded-md bg-surface/80 px-1.5 text-xs text-faint tabular-nums">
                         <span>{dateTime(hovered.time * 1000)}</span>
                         <span>
-                            시 <span className="text-zinc-100">{num(hovered.open)}</span>
+                            시작 <span className="text-fg">{num(hovered.open)}</span>
                         </span>
                         <span>
-                            고 <span className="text-zinc-100">{num(hovered.high)}</span>
+                            고가 <span className="text-up">{num(hovered.high)}</span>
                         </span>
                         <span>
-                            저 <span className="text-zinc-100">{num(hovered.low)}</span>
+                            저가 <span className="text-down">{num(hovered.low)}</span>
                         </span>
                         <span>
-                            종 <span className="text-zinc-100">{num(hovered.close)}</span>
+                            종가 <span className="text-fg">{num(hovered.close)}</span>
                         </span>
                     </div>
                 )}
             </div>
-        </section>
+        </Panel>
     );
 }
