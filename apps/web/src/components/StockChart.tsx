@@ -156,7 +156,7 @@ export function StockChart({ stockId }: { stockId: string }) {
         } else {
             series.setData(candles.map(toBar));
             chartRef.current!.timeScale().setVisibleLogicalRange({
-                // 캔들이 적을 때(1일봉 등) 120칸을 다 잡으면 오른쪽 끝에 몰리므로 최소 30칸만 잡는다.
+                // 캔들이 적을 때(새 게임의 1시간봉 등) 120칸을 다 잡으면 오른쪽 끝에 몰리므로 최소 30칸만 잡는다.
                 from: candles.length - Math.max(Math.min(candles.length, VISIBLE_CANDLES), MIN_VISIBLE_SLOTS),
                 to: candles.length + 3,
             });

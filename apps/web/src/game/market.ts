@@ -14,7 +14,7 @@ import { stockParams, STOCKS, type StockDef } from './stocks.ts';
 export type ParamSchedule = { versionId: string; fromTick: number }[];
 
 /** 가격 기록을 들고 있는 최대 기간. 그보다 오래된 틱은 버린다 */
-export const HISTORY_DAYS = 14;
+export const HISTORY_DAYS = 7;
 
 /** 종목별로 저장해 두는 하루 경계 틱의 엔진 상태(틱 오름차순). 다음에 열 때 여기서부터 이어서 계산한다 */
 export type EngineDays = Record<string, EngineState[]>;

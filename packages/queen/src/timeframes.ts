@@ -8,7 +8,6 @@ export const TIMEFRAMES = [
     { id: '1m', label: '1분', ticks: ticksIn(60_000) },
     { id: '5m', label: '5분', ticks: ticksIn(300_000) },
     { id: '1h', label: '1시간', ticks: ticksIn(3_600_000) },
-    { id: '1d', label: '1일', ticks: ticksIn(86_400_000) },
 ] as const;
 
 export type TimeframeId = (typeof TIMEFRAMES)[number]['id'];
