@@ -2,33 +2,27 @@ export const REGIMES = ['bull', 'bear', 'sideways'] as const;
 export type Regime = (typeof REGIMES)[number];
 
 export interface RegimeParams {
-    /** 이 국면에서 하루 동안 기대되는 로그 수익률 (0.1 = 하루 약 +10%) */
+    /** 이 국면의 하루 기대 로그 수익률(0.1 = 하루 약 +10%) */
     driftPerDay: number;
-    /** 기본 변동성에 곱하는 배율 */
+    /** 기본 변동성 배율 */
     volScale: number;
-    /** 이 국면이 평균적으로 이어지는 시간 */
+    /** 이 국면의 평균 지속 시간 */
     meanHours: number;
 }
 
 export interface EngineParams {
-    /** 아무 일 없을 때의 하루 변동성 (0.04 = 4%) */
+    /** 평상시 하루 변동성(0.04 = 4%) */
     dailyVol: number;
     regimes: Record<Regime, RegimeParams>;
-    /** 변동성 뭉침(GARCH). alpha는 직전 충격의 반영 정도, beta는 변동성의 지속성. alpha + beta < 1 */
+    /** 변동성 뭉침(GARCH). alpha: 직전 충격 반영 정도, beta: 변동성 지속성, alpha + beta < 1 */
     clustering: { alpha: number; beta: number };
-    /** Student-t 자유도. 작을수록 꼬리가 두꺼워 큰 움직임이 잦다. 30 이상이면 정규분포에 가깝다 */
+    /** Student-t 자유도. 작을수록 큰 움직임이 잦고, 30 이상이면 정규분포에 근접 */
     tailDf: number;
-    /**
-     * 급등락. perDay는 하루 평균 횟수, size는 한 번의 크기(로그 수익률 표준편차).
-     * volKick은 급등락이 변동성 뭉침에 들어가는 비율(0~1, 없으면 1). 1이면 급등락 직후 한동안 크게 출렁인다
-     */
+    /** 급등락. perDay: 하루 평균 횟수, size: 1회 크기(로그 수익률 표준편차), volKick: 변동성 뭉침 반영 비율(0~1, 기본 1) */
     jumps: { perDay: number; size: number; volKick?: number };
-    /** 적정가치에서 벌어진 거리가 절반으로 줄어드는 데 걸리는 일수 */
+    /** 적정가치와의 거리가 절반으로 줄어드는 일수 */
     reversionHalfLifeDays: number;
-    /**
-     * 국면마다 추세 세기가 달라지는 정도(로그정규 분포의 표준편차). 없으면 국면마다 같은 세기.
-     * 0.6이면 어떤 상승은 완만하고 어떤 상승은 가파르게 나온다
-     */
+    /** 국면별 추세 세기 편차(로그정규 표준편차). 없으면 모든 국면 같은 세기 */
     trendSpread?: number;
 }
 
@@ -38,16 +32,14 @@ export interface ParamVersion {
 }
 
 /**
- * 게임에 내보낸 엔진 설정의 기록. 맨 뒤 버전이 지금 설정이다.
- *
- * 게임은 처음 보는 버전을 발견하면 그때부터 1분 뒤 틱부터 적용하고,
- * 그 전의 가격은 예전 버전으로 다시 계산한다. 그래서 한 번 추가한 버전은 지우거나 고치지 말고,
- * 바꾸고 싶으면 새 버전을 만들어 맨 뒤에 붙인다.
+ * 게임에 내보낸 엔진 설정 기록. 맨 뒤 버전이 현재 설정
+ * 처음 보는 버전은 1분 뒤 틱부터 적용하고 그 전 가격은 예전 버전으로 재계산
+ * 추가한 버전은 수정·삭제 금지, 변경은 새 버전으로 맨 뒤에 추가
  */
 export const PARAM_VERSIONS: readonly ParamVersion[] = [
     {
-        // 토스증권 코스닥 8종목 1분봉(2026-09-21~10-08 정규장)에 맞춘 설정. 게임 1분 = 실제 1분.
-        // 추세는 평균 25분, 급등락은 하루 2번꼴이고 급등락 뒤에 변동성이 덩달아 커지지 않는다.
+        // 토스증권 코스닥 8종목 1분봉(2026-09-21~10-08 정규장) 기준. 게임 1분 = 실제 1분
+        // 추세 평균 25분, 급등락 하루 약 2회, 급등락 뒤 변동성 확대 없음
         id: 'v3',
         params: {
             dailyVol: 0.055,
@@ -63,8 +55,8 @@ export const PARAM_VERSIONS: readonly ParamVersion[] = [
         },
     },
     {
-        // v3에서 추세만 4배 빠르게 하고 흔들림은 1.5배만 키웠다. 1분 흔들림은 v3와 비슷한데
-        // 상승·하락이 평균 5~6분마다 바뀌어 화면이 빨리 움직인다. 추세마다 세기가 달라 완만한 오름과 가파른 오름이 섞인다.
+        // v3 대비 추세 4배, 흔들림 1.5배. 상승·하락이 평균 5~6분마다 바뀌는 빠른 화면
+        // 추세마다 세기가 달라 완만한 오름과 가파른 오름이 섞임
         id: 'v4',
         params: {
             dailyVol: 0.0674,
@@ -84,5 +76,4 @@ export const PARAM_VERSIONS: readonly ParamVersion[] = [
 
 export const LATEST_VERSION = PARAM_VERSIONS[PARAM_VERSIONS.length - 1]!;
 
-/** 지금 게임에 적용되는 설정 */
 export const DEFAULT_PARAMS: EngineParams = LATEST_VERSION.params;

@@ -4,20 +4,19 @@ export interface StockDef {
     id: string;
     name: string;
     sector: string;
-    /** 종목 아이콘 배경색 */
     color: string;
-    /** 기본 배당률(3시간). 첫 주당 배당금 = 처음 가격 × 이 값. 이후 배당 공시로 주당 배당금이 바뀐다 */
+    /** 기본 배당률(3시간). 첫 주당 배당금 = 처음 가격 × 이 값, 이후 배당 공시로 변동 */
     dividendRate: number;
     initialPrice: number;
-    /** 발행 주식 수. 시가총액 = 발행 주식 수 × 주가 */
+    /** 발행 주식 수 */
     shares: number;
-    /** 시장에서 거래되는 유통 주식 수. 한 사람이 가질 수 있는 최대 수량이다 */
+    /** 유통 주식 수. 1인 최대 보유 수량 */
     floatShares: number;
     personality: Personality;
 }
 
 interface Personality {
-    /** 기본 변동성 배율 */
+    /** 변동성 배율 */
     vol?: number;
     /** 국면별 추세 배율 */
     trend?: number;
@@ -26,7 +25,7 @@ interface Personality {
     tailDf?: number;
 }
 
-/** 엔진 설정 버전에 종목 성격을 입힌다. */
+/** 엔진 설정 버전에 종목 성격 적용 */
 export function stockParams(base: EngineParams, { vol = 1, trend = 1, jumps = 1, tailDf }: Personality): EngineParams {
     const regimes = Object.fromEntries(
         REGIMES.map((r) => [r, { ...base.regimes[r], driftPerDay: base.regimes[r].driftPerDay * trend }]),
@@ -41,7 +40,7 @@ export function stockParams(base: EngineParams, { vol = 1, trend = 1, jumps = 1,
     };
 }
 
-/** 업종별 아이콘 색과 기본 성격. 종목마다 따로 정한 성격이 있으면 그쪽을 쓴다 */
+/** 업종별 아이콘 색과 기본 성격. 종목별 성격이 있으면 그쪽 우선 */
 const SECTORS: Record<string, { color: string; personality: Personality }> = {
     반도체: { color: '#3182f6', personality: { vol: 0.9 } },
     '2차전지': { color: '#22c55e', personality: { vol: 1.4, trend: 1.3 } },
@@ -63,8 +62,8 @@ const SECTORS: Record<string, { color: string; personality: Personality }> = {
 };
 
 /**
- * 처음 가격 기준 시가총액(조 원). 발행 주식 수를 정하는 데만 쓰고, 이후 시가총액은 주가에 따라 움직인다.
- * 가격이 거친 종목일수록 작은 회사로 두었다. 개미전자가 300조로 가장 크고 알방셀이 3천억으로 가장 작다.
+ * 처음 가격 기준 시가총액(조 원). 발행 주식 수 산정용, 이후 시가총액은 주가에 따라 변동
+ * 가격이 거친 종목일수록 작은 회사(개미전자 300조 최대, 알방셀 3천억 최소)
  */
 const MARKET_CAP_JO: Record<string, number> = {
     gmj: 300,
@@ -119,7 +118,7 @@ const MARKET_CAP_JO: Record<string, number> = {
     hrm: 6,
 };
 
-/** 유통 주식 비율. 큰 회사일수록 그룹·최대주주 지분이 많아 시장에 풀린 주식이 적다 */
+/** 유통 주식 비율. 큰 회사일수록 그룹·최대주주 지분이 많아 낮음 */
 function floatRatio(capJo: number): number {
     if (capJo >= 50) return 0.45;
     if (capJo >= 10) return 0.55;
@@ -127,7 +126,6 @@ function floatRatio(capJo: number): number {
     return 0.7;
 }
 
-/** 시가총액 규모 구분 */
 export function sizeClass(marketCap: number): '대형주' | '중형주' | '소형주' {
     if (marketCap >= 10e12) return '대형주';
     if (marketCap >= 1e12) return '중형주';
@@ -135,7 +133,7 @@ export function sizeClass(marketCap: number): '대형주' | '중형주' | '소�
 }
 
 /**
- * 기본 배당률은 업종마다 범위를 두고, 같은 업종이면 가격이 얌전한 종목일수록 높게 줬다.
+ * 업종별 기본 배당률 범위. 같은 업종이면 가격이 얌전한 종목일수록 높음
  * 금융·통신 4.5~6%, 식품·유통·에너지 3.5~5%, 자동차·철강·화학·건설·운송 2.5~4%,
  * 반도체·조선·인터넷·엔터 1.5~3%, 2차전지·바이오·게임 1~2%
  */
@@ -164,8 +162,8 @@ function stock(
 }
 
 /**
- * 종목 목록. 종목의 시드가 목록 순서로 정해지므로 새 종목은 맨 뒤에 붙이고,
- * 이미 있는 종목의 id·순서·성격은 바꾸지 않는다. 바꾸면 그 종목의 지난 가격이 달라진다.
+ * 종목 목록. 시드가 목록 순서로 정해지므로 새 종목은 맨 뒤에 추가
+ * 기존 종목의 id·순서·성격 변경 금지(지난 가격이 달라짐)
  */
 export const STOCKS: StockDef[] = [
     stock('gmj', '개미전자', '반도체', 52_000, 0.03, { vol: 0.6, trend: 0.6, jumps: 0.5 }),
@@ -239,5 +237,5 @@ export const STOCKS: StockDef[] = [
 
 export const STOCK_BY_ID = new Map(STOCKS.map((s) => [s.id, s]));
 
-/** 업종 이름. 목록의 업종 탭 순서로 쓴다 */
+/** 업종 이름(목록 업종 탭 순서) */
 export const SECTOR_NAMES = Object.keys(SECTORS);

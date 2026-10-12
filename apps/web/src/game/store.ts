@@ -27,11 +27,11 @@ import { Market } from './market.ts';
 import { STOCK_BY_ID } from './stocks.ts';
 import { loadSave, writeSave, type SaveData } from './storage.ts';
 
-/** 5분 이상 자리를 비웠다 돌아오면 요약을 보여준다 */
+/** 자리 비움 요약을 띄우는 최소 부재 시간(5분) */
 const AWAY_MIN_TICKS = 300_000 / TICK_MS;
-/** 처음 접속하면 며칠 전부터 시장이 열려 있던 것으로 만든다 */
+/** 첫 접속 시 시장이 이미 열려 있던 것으로 치는 일수 */
 const PREHISTORY_DAYS = 3;
-/** 새 엔진 설정을 발견하면 이만큼 뒤의 틱부터 적용한다. 이미 본 가격이 바뀌지 않게 하는 여유 */
+/** 새 엔진 설정 적용까지의 여유 틱. 이미 본 가격 변경 방지 */
 const NEW_VERSION_DELAY_TICKS = 60_000 / TICK_MS;
 
 export interface AwayReport {
@@ -44,7 +44,7 @@ export interface AwayReport {
     dividends: number;
 }
 
-/** 화면을 보는 동안 배당이 들어오거나 보유 종목의 배당이 바뀌면 잠깐 띄우는 알림 */
+/** 화면을 보는 동안 배당 입금·보유 종목 배당 변경 시 잠깐 띄우는 알림 */
 export interface GameNotice {
     id: string;
     text: string;
@@ -57,7 +57,7 @@ export interface GameSnapshot {
     notice: GameNotice | null;
 }
 
-/** 알림 문구. 배당 입금과 보유 종목의 배당 공시를 한 줄로 묶는다 */
+/** 배당 입금과 보유 종목 배당 공시를 한 줄로 묶은 알림 문구 */
 function noticeText(dividends: number, payoutCount: number, changes: { stockId: string; from: number; to: number }[]) {
     const parts: string[] = [];
     if (dividends > 0) {
@@ -91,9 +91,9 @@ function newSave(now: number): SaveData {
 }
 
 /**
- * 저장된 설정 일정을 코드의 설정 버전에 맞춘다.
- * - 코드에 없는 버전은 일정에서 뺀다. 그 버전은 원래 계산에도 쓰일 수 없었다.
- * - 처음 보는 최신 버전은 지금부터 1분 뒤 틱부터 적용한다. 이미 지나간 틱은 예전 설정 그대로라 본 적 있는 가격이 바뀌지 않는다.
+ * 저장된 설정 일정을 코드의 설정 버전에 맞춤
+ * - 코드에 없는 버전은 일정에서 제외(원래 계산에도 쓰일 수 없던 버전)
+ * - 처음 보는 최신 버전은 1분 뒤 틱부터 적용(이미 본 가격 유지)
  */
 function scheduleLatestVersion(save: SaveData, tick: number): SaveData {
     const known = new Set(PARAM_VERSIONS.map((v) => v.id));
@@ -110,9 +110,9 @@ class GameStore {
     private save: SaveData;
     private snapshot: GameSnapshot;
     private listeners = new Set<() => void>();
-    /** 마지막으로 화면을 본 뒤에 체결된 주문 */
+    /** 마지막 화면 확인 후 체결된 주문 */
     private unseenTrades: Trade[] = [];
-    /** 마지막으로 화면을 본 뒤에 받은 배당 합계 */
+    /** 마지막 화면 확인 후 받은 배당 합계 */
     private unseenDividends = 0;
     private notice: GameNotice | null = null;
     private resetting = false;
@@ -120,7 +120,7 @@ class GameStore {
     constructor() {
         const now = Date.now();
         const raw = loadSave() ?? newSave(now);
-        // 배당 기능 전의 저장에는 배당 내역이 없다.
+        // 배당 기능 이전 저장에는 배당 내역 없음
         const tick = tickIndexAt(now, raw.epoch);
         const loaded = {
             ...raw,
@@ -128,7 +128,7 @@ class GameStore {
             dividendPolicy: initDividendPolicy(raw.dividendPolicy, tick),
         };
         this.save = scheduleLatestVersion(loaded, tick);
-        // 목록에는 최근 24시간이, 지정가 주문이 걸린 종목은 마지막으로 처리한 틱부터의 가격이 필요하다.
+        // 목록용 최근 24시간, 지정가 주문 종목은 마지막 처리 틱부터의 가격 필요
         const { account, processedTick } = this.save;
         const ordered = new Set(account.orders.map((o) => o.stockId));
         this.market = new Market(
@@ -153,12 +153,12 @@ class GameStore {
         return this.save.epoch;
     }
 
-    /** 일정에 들어갔지만 아직 적용되기 전인 설정 버전 */
+    /** 일정에 있지만 아직 적용 전인 설정 버전 */
     get upcomingVersion() {
         return this.save.paramSchedule.find((s) => s.fromTick > this.market.tick) ?? null;
     }
 
-    /** 다음 틱 경계마다 시장을 진행하고, 탭으로 돌아오면 바로 따라잡는다. */
+    /** 틱 경계마다 시장 진행, 탭 복귀 시 즉시 따라잡기 */
     start() {
         const schedule = () => {
             const next = tickStartTime(this.market.tick + 1, this.save.epoch);
@@ -174,12 +174,12 @@ class GameStore {
         document.addEventListener('visibilitychange', this.sync);
     }
 
-    /** 현재 시각까지 시장을 진행하고, 그동안의 지정가 주문을 틱 순서대로 체결한다. */
+    /** 현재 시각까지 시장 진행 및 그동안의 지정가 주문을 틱 순서대로 체결 */
     sync = () => {
         const target = tickIndexAt(Date.now(), this.save.epoch);
         this.market.advanceTo(target);
 
-        // 지나간 자정마다 배당을 공시해 두어야, 그 뒤에 끝난 배당 구간을 바뀐 주당 배당금으로 계산할 수 있다.
+        // 지난 자정마다 배당 공시 선처리. 이후 끝난 배당 구간을 바뀐 주당 배당금으로 계산하기 위함
         const announced = announceDividends(this.policy, target, (id, at) => this.market.rawPrice(id, at));
         const policy = announced.policy;
 
@@ -199,7 +199,7 @@ class GameStore {
             dividendCount += result.payouts.length;
         };
         for (let t = this.save.processedTick + 1; t <= target && account.orders.length > 0; t++) {
-            // 체결로 보유량이 바뀌기 전에 그때까지의 보유분으로 배당을 쌓는다.
+            // 체결로 보유량이 바뀌기 전 기존 보유분으로 배당 적립
             accrue(t);
             const result = fillLimitOrders(
                 account,
@@ -211,7 +211,7 @@ class GameStore {
         }
         accrue(target);
         this.unseenDividends += dividends;
-        // 지난 틱으로 주문을 다 처리한 뒤에야 오래된 기록을 버릴 수 있다.
+        // 지난 틱 주문을 모두 처리한 뒤에만 오래된 기록 삭제 가능
         this.market.trimHistory();
 
         let away = this.snapshot.away;
@@ -255,13 +255,10 @@ class GameStore {
         return this.save.dividendPolicy!;
     }
 
-    /** 이 종목의 주당 배당금, 지금 주가 기준 배당률, 최근 공시 변화 */
+    /** 이 종목의 주당 배당금, 현재 주가 기준 배당률, 최근 공시 변화 */
     dividendOf = (stockId: string) => dividendInfo(this.policy, stockId, this.market.price(stockId));
 
-    /**
-     * 시장가 주문은 보유량을 바로 바꾸므로, 그 전에 지금 틱까지 배당 보유량을 쌓는다.
-     * 매 틱 sync에서 이미 쌓아 두므로 보통은 바뀌는 것이 없다.
-     */
+    /** 시장가 주문 직전 현재 틱까지 배당 보유량 적립. 매 틱 sync에서 이미 쌓아 두어 보통은 변화 없음 */
     marketOrder = (stockId: string, side: Side, qty: number): OrderResult => {
         const { account } = accrueDividends(
             this.save.account,
@@ -280,7 +277,7 @@ class GameStore {
         this.commit({ ...this.save, account: cancelOrder(this.save.account, orderId) }, this.snapshot.away);
     };
 
-    /** 계좌와 시장을 모두 새로 만든다. 시장 객체를 갈아끼우는 대신 새로 불러온다. */
+    /** 계좌와 시장 초기화. 시장 객체 교체 대신 새로 불러오기 */
     reset = () => {
         this.resetting = true;
         writeSave(newSave(Date.now()));
@@ -293,7 +290,7 @@ class GameStore {
     }
 
     private commit(save: SaveData, away: AwayReport | null) {
-        // 새로고침 직전에 타이머가 돌아도 새 저장을 덮어쓰지 않게 한다.
+        // 새로고침 직전 타이머의 새 저장 덮어쓰기 방지
         if (this.resetting) return;
         this.save = { ...save, engineDays: this.market.engineDays() };
         writeSave(this.save);

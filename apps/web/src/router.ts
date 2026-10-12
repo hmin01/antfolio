@@ -4,7 +4,7 @@ import { STOCK_BY_ID } from './game/stocks.ts';
 
 export type Route = { page: 'home' } | { page: 'stock'; stockId: string };
 
-/** 정적 호스팅과 PWA에서도 새로고침이 깨지지 않도록 해시로 페이지를 나눈다. */
+/** 정적 호스팅·PWA 새로고침 대응용 해시 라우팅 */
 export const stockHref = (stockId: string) => `#/stocks/${stockId}`;
 export const HOME_HREF = '#/';
 

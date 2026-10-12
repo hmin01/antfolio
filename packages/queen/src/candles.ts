@@ -1,7 +1,7 @@
 import { tickStartTime } from './clock.ts';
 
 export interface Candle {
-    /** 캔들이 시작되는 시각(ms) */
+    /** 캔들 시작 시각(ms) */
     time: number;
     open: number;
     high: number;
@@ -9,10 +9,7 @@ export interface Candle {
     close: number;
 }
 
-/**
- * 틱 가격을 `ticksPerCandle`개씩 묶어 캔들로 만든다.
- * 시가는 직전 캔들의 종가라서 한 틱짜리 캔들도 몸통이 생긴다. 마지막 캔들은 덜 찼어도 포함한다.
- */
+/** 틱 가격을 `ticksPerCandle`개씩 묶은 캔들 목록. 시가는 직전 캔들 종가(한 틱 캔들도 몸통 생김), 덜 찬 마지막 캔들 포함 */
 export function toCandles(prices: ArrayLike<number>, ticksPerCandle: number, epoch: number): Candle[] {
     const candles: Candle[] = [];
     const lastTick = prices.length - 1;

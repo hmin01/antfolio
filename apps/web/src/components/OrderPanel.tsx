@@ -29,7 +29,7 @@ const toInt = (value: string) => (value.trim() === '' ? NaN : Number(value.repla
 interface StepperProps {
     id: string;
     label: string;
-    /** 숫자만 담은 문자열. 화면에는 천 단위 쉼표를 붙여 보여준다 */
+    /** 숫자만 담은 문자열(화면에는 천 단위 쉼표 표시) */
     value: string;
     placeholder?: string;
     suffix: string;
@@ -37,7 +37,7 @@ interface StepperProps {
     onStep: (direction: 1 | -1) => void;
 }
 
-/** 숫자 입력칸 양옆에 -/+ 버튼이 붙은 토스증권식 입력. */
+/** 양옆에 -/+ 버튼이 붙은 토스증권식 숫자 입력 */
 function Stepper({ id, label, value, placeholder, suffix, onChange, onStep }: StepperProps) {
     const stepButton = (direction: 1 | -1, text: string) => (
         <button
@@ -78,7 +78,7 @@ function Row({ label, children, strong = false }: { label: string; children: Rea
     );
 }
 
-/** 종목이 바뀌면 입력을 비우도록 부모에서 key={stockId}로 렌더한다. */
+/** 종목 변경 시 입력 초기화를 위해 부모에서 key={stockId}로 렌더 */
 export function OrderPanel({ stockId }: { stockId: string }) {
     const { account } = useGame();
     const ids = { qty: useId(), price: useId() };
@@ -104,7 +104,7 @@ export function OrderPanel({ stockId }: { stockId: string }) {
 
     const stepPrice = (direction: 1 | -1) => {
         const current = toInt(limitText) > 0 ? toInt(limitText) : price;
-        // 아래로 내릴 때는 한 단계 아래 가격대의 호가 단위를 써야 경계에서 단위가 맞는다.
+        // 내릴 때는 한 단계 아래 가격대의 호가 단위 사용(경계에서 단위 일치)
         const step = priceStep(direction > 0 ? current : current - 1);
         setLimitText(String(Math.max(1, Math.round(current / step) * step + direction * step)));
     };

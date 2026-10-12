@@ -26,7 +26,7 @@ import { sizeClass, STOCK_BY_ID } from '../game/stocks.ts';
 import { game, useGame } from '../game/store.ts';
 import { HOME_HREF } from '../router.ts';
 
-/** 24시간 저가~고가 사이에서 현재가가 어디쯤인지 보여주는 막대 */
+/** 24시간 저가~고가 사이 현재가 위치 막대 */
 function RangeBar({ low, high, price }: { low: number; high: number; price: number }) {
     const position = high === low ? 0.5 : (price - low) / (high - low);
     return (
@@ -48,7 +48,7 @@ function RangeBar({ low, high, price }: { low: number; high: number; price: numb
     );
 }
 
-/** 시가총액과 규모 구분, 발행 주식 수 */
+/** 시가총액, 규모 구분, 발행 주식 수 */
 function MarketCapSummary({ stockId, marketCap }: { stockId: string; marketCap: number }) {
     const stock = STOCK_BY_ID.get(stockId)!;
     return (
@@ -60,7 +60,7 @@ function MarketCapSummary({ stockId, marketCap }: { stockId: string; marketCap: 
     );
 }
 
-/** 지금 주가 기준 배당률, 주당 배당금, 최근 배당 공시 */
+/** 현재 주가 기준 배당률, 주당 배당금, 최근 배당 공시 */
 function DividendSummary({ stockId }: { stockId: string }) {
     const info = game.dividendOf(stockId);
     const changed = Math.round(info.lastChange * 100);
@@ -122,7 +122,7 @@ function StockHeader({ stockId }: { stockId: string }) {
     );
 }
 
-/** 이 종목의 보유 현황과 걸어 둔 주문, 거래 내역 */
+/** 이 종목의 보유 현황, 미체결 주문, 거래 내역 */
 function StockActivity({ stockId }: { stockId: string }) {
     const { account } = useGame();
     const holding = account.holdings[stockId];
@@ -221,7 +221,7 @@ function StockActivity({ stockId }: { stockId: string }) {
     );
 }
 
-/** 종목 상세. 넓은 화면에서는 차트 옆에 주문 패널을 붙여 둔다. */
+/** 종목 상세. 넓은 화면에서는 차트 옆에 주문 패널 배치 */
 export function StockPage({ stockId }: { stockId: string }) {
     const stock = STOCK_BY_ID.get(stockId)!;
 
@@ -236,7 +236,7 @@ export function StockPage({ stockId }: { stockId: string }) {
     return (
         <div className="space-y-4">
             <StockHeader stockId={stockId} />
-            {/* 모바일에서는 차트 → 주문 → 내 주문 순서로 쌓고, 넓은 화면에서는 주문을 오른쪽 열에 붙인다. */}
+            {/* 모바일은 차트 → 주문 → 내 주문 순서, 넓은 화면은 주문을 오른쪽 열에 배치 */}
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_1fr]">
                 <div className="min-w-0">
                     <StockChart stockId={stockId} />

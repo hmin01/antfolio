@@ -3,23 +3,23 @@ import { TICK_MS, TICKS_PER_DAY } from '@antfolio/queen';
 import type { Account, DividendPayout, Holding } from './account.ts';
 import { STOCK_BY_ID, STOCKS } from './stocks.ts';
 
-/** 배당 구간 길이. 처음 산 틱부터 이만큼마다 배당이 나온다 */
+/** 배당 구간 길이. 첫 매수 틱부터 이 간격마다 배당 */
 export const DIVIDEND_PERIOD_TICKS = (3 * 3_600_000) / TICK_MS;
-/** 실제 배당률 상한. 주가가 크게 떨어져도 평가금액의 이 비율까지만 준다 */
+/** 실제 배당률 상한. 주가 급락 시에도 평가금액의 이 비율까지만 지급 */
 export const MAX_DIVIDEND_YIELD = 0.09;
-/** 배당 공시 한 번에 주당 배당금이 바뀌는 최대 비율 */
+/** 배당 공시 1회당 주당 배당금 최대 변동 비율 */
 const MAX_ANNOUNCE_STEP = 0.2;
-/** 지난 24시간 주가 등락이 주당 배당금 변화로 이어지는 배율. 주가 +5%면 배당 +10% */
+/** 24시간 주가 등락 대비 주당 배당금 변화 배율(주가 +5% → 배당 +10%) */
 const ANNOUNCE_SENSITIVITY = 2;
-/** 주당 배당금은 처음 값의 이 범위 안에서만 움직인다 */
+/** 처음 주당 배당금 대비 허용 범위 */
 const DPS_MIN_RATIO = 0.5;
 const DPS_MAX_RATIO = 2;
-/** 종목마다 남겨 두는 배당 공시 개수. 자리를 비운 동안의 지급을 계산할 만큼만 있으면 된다 */
+/** 종목별 보관 배당 공시 개수. 자리 비운 동안의 지급 계산에 충분한 만큼 */
 const KEEP_ANNOUNCEMENTS = 10;
-/** 계좌에 남겨 두는 배당 내역 개수 */
+/** 계좌에 보관하는 배당 내역 개수 */
 const KEEP_PAYOUTS = 200;
 
-/** 배당 공시. 이 틱부터 주당 배당금이 dps원이다 */
+/** 배당 공시. 이 틱부터 주당 배당금 dps원 */
 export interface DividendAnnouncement {
     tick: number;
     dps: number;
@@ -28,7 +28,7 @@ export interface DividendAnnouncement {
 /** 종목별 배당 공시 기록(틱 오름차순) */
 export type DividendPolicy = Record<string, DividendAnnouncement[]>;
 
-/** 주당 배당금이 바뀐 공시. 알림에 쓴다 */
+/** 주당 배당금이 바뀐 공시(알림용) */
 export interface DividendChange {
     stockId: string;
     from: number;
@@ -44,7 +44,7 @@ const baseDps = (stockId: string) => {
 };
 const dayStart = (tick: number) => Math.floor(tick / TICKS_PER_DAY) * TICKS_PER_DAY;
 
-/** 배당 공시 기록이 없는 종목(처음 시작, 새로 생긴 종목)은 오늘 자정에 기본 주당 배당금으로 시작한다. */
+/** 공시 기록이 없는 종목(첫 시작, 신규 종목)은 오늘 자정에 기본 주당 배당금으로 시작 */
 export function initDividendPolicy(policy: DividendPolicy | undefined, tick: number): DividendPolicy {
     const next: DividendPolicy = { ...policy };
     for (const stock of STOCKS) {
@@ -60,10 +60,7 @@ export function dpsAt(policy: DividendPolicy, stockId: string, tick: number): nu
     return list[0]!.dps;
 }
 
-/**
- * 마지막 공시 다음 자정부터 `tick`까지의 자정마다 배당을 공시한다.
- * 지난 24시간 주가가 오르면 주당 배당금을 늘리고 내리면 줄인다. 가격 기록으로만 정해져 언제 계산해도 같다.
- */
+/** 마지막 공시 다음 자정부터 `tick`까지 자정마다 배당 공시. 지난 24시간 주가 등락에 따라 주당 배당금 증감(가격 기록만으로 결정되어 언제 계산해도 동일) */
 export function announceDividends(
     policy: DividendPolicy,
     tick: number,
@@ -92,10 +89,10 @@ export function announceDividends(
     return { policy: next, changes };
 }
 
-/** 주당 배당금과 주가로 정한 한 주의 배당. 실제 배당률은 MAX_DIVIDEND_YIELD를 넘지 않는다 */
+/** 주당 배당금과 주가로 정한 1주 배당. 실제 배당률은 MAX_DIVIDEND_YIELD 이하 */
 const perShare = (dps: number, price: number) => Math.min(dps, price * MAX_DIVIDEND_YIELD);
 
-/** 지금 주가 기준 배당률과 최근 공시 변화 */
+/** 현재 주가 기준 배당률과 최근 공시 변화 */
 export function dividendInfo(policy: DividendPolicy, stockId: string, price: number) {
     const list = policy[stockId]!;
     const current = list.at(-1)!;
@@ -104,18 +101,18 @@ export function dividendInfo(policy: DividendPolicy, stockId: string, price: num
         dps: current.dps,
         yield: perShare(current.dps, price) / price,
         capped: current.dps > price * MAX_DIVIDEND_YIELD,
-        /** 마지막 공시에서 주당 배당금이 바뀐 비율. 공시가 한 번뿐이면 0 */
+        /** 마지막 공시의 주당 배당금 변화율. 공시가 1회뿐이면 0 */
         lastChange: previous ? current.dps / previous.dps - 1 : 0,
         announcedAt: current.tick,
     };
 }
 
 /**
- * `tick`까지 보유량을 쌓고, 그 사이 끝난 배당 구간을 정산한다.
+ * `tick`까지 보유량 적립 및 그 사이 끝난 배당 구간 정산
  *
- * 보유량이 바뀌기 직전(주문 체결 전)마다 불러야 한다. 그래야 구간 동안의 보유량을 시간 비례로 정확히 계산할 수 있다.
- * 구간 중간에 산 물량은 들고 있던 시간만큼만, 다 팔아 버린 종목은 채우지 못한 구간을 받지 못한다.
- * 배당은 구간이 끝나는 틱의 주당 배당금과 주가로 계산한다.
+ * 보유량 변경 직전(주문 체결 전)마다 호출 필요. 구간 보유량을 시간 비례로 계산하기 위함
+ * 중간 매수분은 보유 시간만큼만, 전량 매도한 종목은 미완료 구간 미지급
+ * 배당은 구간 종료 틱의 주당 배당금과 주가 기준
  */
 export function accrueDividends(
     account: Account,
@@ -124,7 +121,7 @@ export function accrueDividends(
     priceAt: PriceAt,
     timeAt: (tick: number) => number,
 ): { account: Account; payouts: DividendPayout[] } {
-    // 배당 기능이 생기기 전의 계좌는 지금부터 쌓기 시작한다.
+    // 배당 기능 이전 계좌는 지금부터 적립
     const last = account.dividendTick ?? tick;
     if (tick <= last && account.dividendTick !== undefined) return { account, payouts: [] };
 
@@ -166,7 +163,7 @@ export function accrueDividends(
     };
 }
 
-/** 이 보유분의 다음 배당까지 남은 틱과, 지금 수량·주당 배당금·주가가 그대로일 때 받을 예상 배당 */
+/** 다음 배당까지 남은 틱과 예상 배당(현재 수량·주당 배당금·주가 유지 가정) */
 export function nextDividend(
     holding: Holding,
     accountTick: number,

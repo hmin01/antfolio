@@ -21,7 +21,7 @@ type SortId = (typeof SORTS)[number]['id'];
 const ROW_GRID =
     'grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[1.5rem_minmax(0,1fr)_6rem_3.75rem_3.75rem_4.75rem_3.25rem_4.5rem]';
 
-/** 종목 화면에 갔다 돌아와도 고른 업종이 남도록 탭을 닫기 전까지만 기억한다 */
+/** 종목 화면을 다녀와도 고른 업종 유지(탭을 닫기 전까지) */
 const SECTOR_KEY = 'antfolio:sector';
 function readSector(): string | null {
     try {
@@ -36,13 +36,13 @@ function writeSector(sector: string | null) {
         if (sector) sessionStorage.setItem(SECTOR_KEY, sector);
         else sessionStorage.removeItem(SECTOR_KEY);
     } catch {
-        // 저장이 막혀 있어도 탭은 그대로 동작한다.
+        // 저장이 막혀도 탭 동작 유지
     }
 }
 
 interface SectorTabProps {
     label: string;
-    /** 업종 종목들의 24시간 등락률 평균. 전체 탭은 없음 */
+    /** 업종 종목들의 24시간 평균 등락률. 전체 탭은 없음 */
     rate?: number;
     selected: boolean;
     onSelect: () => void;
@@ -66,7 +66,7 @@ function SectorTab({ label, rate, selected, onSelect }: SectorTabProps) {
     );
 }
 
-/** 넓은 화면에서만 보이는 숫자 칸 */
+/** 넓은 화면 전용 숫자 칸 */
 function Cell({ className = '', children }: { className?: string; children: ReactNode }) {
     return <span className={`hidden text-right text-sm tabular-nums sm:block ${className}`}>{children}</span>;
 }
@@ -86,7 +86,7 @@ export function StockTable() {
         quote: quoteOf(game.market, stock.id),
         dividend: game.dividendOf(stock.id),
     }));
-    /** 업종의 3시간 등락률. 실제 업종지수처럼 시가총액이 큰 회사의 등락을 더 크게 반영한다 */
+    /** 업종 3시간 등락률. 업종지수처럼 시가총액 가중 */
     const sectorRate = (name: string) => {
         const members = allRows.filter((r) => r.stock.sector === name);
         const now = members.reduce((sum, r) => sum + r.quote.marketCap, 0);

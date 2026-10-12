@@ -4,7 +4,7 @@ interface SparklineProps {
     height?: number;
 }
 
-/** 24시간 흐름을 보여주는 작은 선 그래프. 시작보다 오르면 빨강, 내리면 파랑. */
+/** 24시간 흐름 미니 선 그래프. 상승 빨강, 하락 파랑 */
 export function Sparkline({ points, width = 80, height = 28 }: SparklineProps) {
     const min = Math.min(...points);
     const max = Math.max(...points);

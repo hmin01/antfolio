@@ -18,7 +18,7 @@ import { roundPrice } from '../game/market.ts';
 import { game, useGame } from '../game/store.ts';
 import { Panel } from './Panel.tsx';
 
-/** 처음 열거나 단위를 바꿨을 때 보여줄 캔들 수 */
+/** 처음 열거나 단위 변경 시 보여줄 캔들 수 */
 const VISIBLE_CANDLES = 120;
 const MIN_VISIBLE_SLOTS = 30;
 
@@ -38,10 +38,10 @@ const subscribeScheme = (listener: () => void) => {
     media.addEventListener('change', listener);
     return () => media.removeEventListener('change', listener);
 };
-/** 기기 테마가 바뀌면 다시 그리도록 지금 테마를 구독한다. */
+/** 기기 테마 변경 시 다시 그리기 위한 현재 테마 구독 */
 const useDarkScheme = () => useSyncExternalStore(subscribeScheme, () => window.matchMedia(DARK_QUERY).matches);
 
-/** index.css의 색 토큰. 차트는 캔버스라 CSS 클래스를 못 쓰고 값을 직접 넘긴다. */
+/** index.css 색 토큰. 캔버스 차트라 CSS 클래스 대신 값 직접 전달 */
 function themeColors() {
     const style = getComputedStyle(document.documentElement);
     const token = (name: string) => style.getPropertyValue(`--${name}`).trim();
@@ -55,7 +55,7 @@ function themeColors() {
     };
 }
 
-// lightweight-charts는 시간을 UTC로 표시하므로 로컬 시간으로 직접 포맷한다.
+// lightweight-charts는 UTC 기준이라 로컬 시간 직접 포맷
 function formatTickMark(time: Time, type: TickMarkType): string {
     const date = toDate(time);
     switch (type) {
@@ -81,7 +81,7 @@ export function StockChart({ stockId }: { stockId: string }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-    /** 지금 차트에 올라가 있는 데이터가 어떤 종목·단위의 몇 개 캔들인지 */
+    /** 현재 차트 데이터의 종목·단위·캔들 수 */
     const loadedRef = useRef<{ key: string; length: number } | null>(null);
 
     const timeframe = TIMEFRAMES.find((t) => t.id === timeframeId)!;
@@ -139,15 +139,15 @@ export function StockChart({ stockId }: { stockId: string }) {
         });
     }, [dark]);
 
-    // 종목이나 단위가 바뀌면 전체를 다시 올리고, 틱만 지나면 새로 생기거나 바뀐 캔들만 갱신한다.
+    // 종목·단위 변경 시 전체 갱신, 틱 경과 시 새로 생기거나 바뀐 캔들만 갱신
     useEffect(() => {
         const series = seriesRef.current!;
-        // 이 종목의 지난 기록을 채운 뒤, 기록이 시작하는 틱의 시각을 기준으로 캔들을 묶는다.
+        // 지난 기록을 채운 뒤 기록 시작 틱 시각 기준으로 캔들 묶기
         const { market } = game;
         market.ensureHistory(stockId);
         const { prices, startTick } = market.byId.get(stockId)!;
         const candles = toCandles(prices, timeframe.ticks, tickStartTime(startTick, game.epoch));
-        // 기록의 시작이 바뀌면(오래된 기록 정리) 앞쪽 캔들이 달라지므로 전체를 다시 올린다.
+        // 기록 시작이 바뀌면(오래된 기록 정리) 앞쪽 캔들이 달라져 전체 갱신
         const key = `${stockId}-${timeframe.id}-${startTick}`;
         const loaded = loadedRef.current;
 
@@ -156,17 +156,17 @@ export function StockChart({ stockId }: { stockId: string }) {
         } else {
             series.setData(candles.map(toBar));
             chartRef.current!.timeScale().setVisibleLogicalRange({
-                // 캔들이 적을 때(새 게임의 1시간봉 등) 120칸을 다 잡으면 오른쪽 끝에 몰리므로 최소 30칸만 잡는다.
+                // 캔들이 적을 때(새 게임 1시간봉 등) 오른쪽 끝 쏠림 방지용 최소 30칸
                 from: candles.length - Math.max(Math.min(candles.length, VISIBLE_CANDLES), MIN_VISIBLE_SLOTS),
                 to: candles.length + 3,
             });
         }
         loadedRef.current = { key, length: candles.length };
-        // 가격은 game.market에서 직접 읽으므로, 틱이 지날 때마다 다시 그리도록 tick을 의존성에 둔다.
+        // 가격을 game.market에서 직접 읽어 틱마다 다시 그리도록 tick을 의존성에 포함
         // oxlint-disable-next-line react/exhaustive-deps
     }, [stockId, timeframe, tick]);
 
-    // 평단가와 미체결 주문을 가로선으로 보여준다.
+    // 평단가와 미체결 주문 가로선
     const holding = account.holdings[stockId];
     const orders = useMemo(() => account.orders.filter((o) => o.stockId === stockId), [account.orders, stockId]);
     useEffect(() => {

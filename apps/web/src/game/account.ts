@@ -1,7 +1,7 @@
 import { STOCK_BY_ID } from './stocks.ts';
 
 export const START_CASH = 10_000_000;
-/** 매수가와 매도가의 차이. 호가창이 없는 대신 사고팔 때 비용이 생기게 한다 */
+/** 매수가·매도가 차이. 호가창 대신 생기는 거래 비용 */
 export const SPREAD = 0.001;
 export const FEE_RATE = 0.00015;
 
@@ -9,18 +9,18 @@ export type Side = 'buy' | 'sell';
 
 export interface Holding {
     qty: number;
-    /** 수수료를 뺀 평균 매수 단가 */
+    /** 수수료 제외 평균 매수 단가 */
     avgPrice: number;
-    /** 지금 배당 구간이 시작된 틱. 처음 산 틱부터 3시간마다 새 구간이 시작된다 */
+    /** 현재 배당 구간 시작 틱. 첫 매수 틱부터 3시간마다 새 구간 */
     dividendSince?: number;
-    /** 지금 배당 구간에서 쌓인 (보유 수량 × 보유 틱). 구간 길이로 나누면 평균 보유 수량 */
+    /** 현재 구간에 쌓인 (보유 수량 × 보유 틱). 구간 길이로 나누면 평균 보유 수량 */
     shareTicks?: number;
 }
 
 export interface DividendPayout {
     id: string;
     stockId: string;
-    /** 구간 동안의 평균 보유 수량 */
+    /** 구간 평균 보유 수량 */
     qty: number;
     /** 배당 기준 주가 */
     price: number;
@@ -28,7 +28,7 @@ export interface DividendPayout {
     time: number;
 }
 
-/** 아직 체결되지 않은 지정가 주문. 매수는 현금을, 매도는 주식을 묶어 둔다 */
+/** 미체결 지정가 주문. 매수는 현금, 매도는 주식 묶음 */
 export interface LimitOrder {
     id: string;
     stockId: string;
@@ -46,7 +46,7 @@ export interface Trade {
     qty: number;
     price: number;
     fee: number;
-    /** 매도일 때 실현 손익 (수수료 포함) */
+    /** 매도 시 실현 손익(수수료 포함) */
     realizedPnl: number | null;
     time: number;
 }
@@ -56,9 +56,9 @@ export interface Account {
     holdings: Record<string, Holding>;
     orders: LimitOrder[];
     trades: Trade[];
-    /** 받은 배당. 최근 것부터 */
+    /** 받은 배당(최신순) */
     dividends: DividendPayout[];
-    /** 배당 보유량을 마지막으로 쌓은 틱. 이 틱 이후로 보유량이 바뀌기 전에 다시 쌓아야 한다 */
+    /** 배당 보유량을 마지막으로 쌓은 틱. 보유량 변경 전 재적립 필요 */
     dividendTick?: number;
 }
 
@@ -72,7 +72,7 @@ export const createAccount = (): Account => ({
     dividends: [],
 });
 
-/** 한국거래소 호가 단위. 지정가 입력의 -/+ 버튼이 이만큼씩 움직인다 */
+/** 한국거래소 호가 단위. 지정가 -/+ 버튼의 이동 폭 */
 export function priceStep(price: number): number {
     if (price < 2_000) return 1;
     if (price < 5_000) return 5;
@@ -87,7 +87,7 @@ export const askPrice = (price: number) => Math.ceil(price * (1 + SPREAD / 2));
 export const bidPrice = (price: number) => Math.max(1, Math.floor(price * (1 - SPREAD / 2)));
 export const feeFor = (amount: number) => Math.round(amount * FEE_RATE);
 
-/** 매수 지정가 주문에 묶인 현금. 체결가는 지정가 이하라 지정가 기준으로 넉넉히 잡는다 */
+/** 매수 지정가 주문에 묶인 현금. 체결가가 지정가 이하라 지정가 기준 */
 const buyReserve = (qty: number, price: number) => qty * price + feeFor(qty * price);
 
 export function availableCash(account: Account): number {
@@ -97,10 +97,7 @@ export function availableCash(account: Account): number {
     return account.cash - reserved;
 }
 
-/**
- * 더 살 수 있는 수량. 한 사람이 유통 주식보다 많이 가질 수는 없다.
- * 걸어 둔 매수 주문도 체결되면 보유가 되므로 함께 뺀다.
- */
+/** 추가 매수 가능 수량. 유통 주식 수에서 보유량과 미체결 매수 수량을 뺀 값 */
 export function buyableShares(account: Account, stockId: string): number {
     const pending = account.orders
         .filter((o) => o.side === 'buy' && o.stockId === stockId)
@@ -116,7 +113,7 @@ export function availableShares(account: Account, stockId: string): number {
     return (account.holdings[stockId]?.qty ?? 0) - reserved;
 }
 
-/** 지금 현금으로 살 수 있는 최대 수량 */
+/** 현재 현금으로 살 수 있는 최대 수량 */
 export function maxBuyQty(cash: number, price: number): number {
     let qty = Math.floor(cash / (price * (1 + FEE_RATE)));
     while (qty > 0 && buyReserve(qty, price) > cash) qty--;
@@ -211,10 +208,7 @@ export function cancelOrder(account: Account, orderId: string): Account {
     return { ...account, orders: account.orders.filter((o) => o.id !== orderId) };
 }
 
-/**
- * 한 틱의 가격으로 지정가 주문을 체결한다.
- * 매수는 매수가가 지정가 이하로, 매도는 매도가가 지정가 이상으로 오면 그 틱의 가격에 체결된다.
- */
+/** 한 틱 가격으로 지정가 주문 체결. 매수가 ≤ 지정가인 매수, 매도가 ≥ 지정가인 매도를 그 틱 가격에 체결 */
 export function fillLimitOrders(
     account: Account,
     priceOf: (stockId: string) => number,

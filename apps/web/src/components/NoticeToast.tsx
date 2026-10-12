@@ -4,7 +4,7 @@ import { game, useGame } from '../game/store.ts';
 
 const SHOW_MS = 4000;
 
-/** 화면을 보는 동안 배당이 들어오거나 보유 종목의 배당이 바뀌면 아래쪽에 잠깐 띄운다. */
+/** 배당 입금·배당 변경 시 화면 아래쪽에 잠깐 띄우는 알림 */
 export function NoticeToast() {
     const { notice } = useGame();
 

@@ -5,19 +5,19 @@ import { rngForTick, type Rng } from './rng.ts';
 export const TICKS_PER_DAY = 86_400_000 / TICK_MS;
 const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
 
-/** 변동성 뭉침이 폭주하지 않도록 기본 분산의 이 배수에서 자른다. */
+/** 변동성 뭉침 폭주 방지용 상한(기본 분산 대비 배수) */
 const MAX_VARIANCE_MULTIPLE = 50;
 const MAX_PERSISTENCE = 0.999;
 
 export interface EngineState {
     tick: number;
     logPrice: number;
-    /** 가격이 장기적으로 되돌아가려는 기준점 */
+    /** 장기적으로 가격이 되돌아가는 기준점 */
     logFairValue: number;
-    /** 다음 틱에 쓸 틱당 분산 */
+    /** 다음 틱의 틱당 분산 */
     variance: number;
     regime: Regime;
-    /** 지금 국면의 추세 세기. 국면마다 새로 뽑는다(`trendSpread`가 없으면 늘 1) */
+    /** 현재 국면의 추세 세기. 국면마다 새로 추첨(`trendSpread` 없으면 1) */
     trendStrength: number;
 }
 
@@ -36,7 +36,7 @@ export function initialState(price: number, params: EngineParams, regime: Regime
     };
 }
 
-/** 분산이 1이 되도록 맞춘 Student-t 난수. */
+/** 분산 1로 맞춘 Student-t 난수 */
 function studentT(rng: Rng, df: number): number {
     let chiSquare = 0;
     for (let i = 0; i < df; i++) chiSquare += rng.normal() ** 2;
@@ -50,7 +50,7 @@ function nextRegime(rng: Rng, current: Regime, params: EngineParams): Regime {
     return others[Math.floor(rng.next() * others.length)]!;
 }
 
-/** 한 틱 진행한 다음 상태. 같은 시드와 상태면 항상 같은 결과가 나온다. */
+/** 한 틱 진행 후 상태. 같은 시드·상태면 항상 같은 결과 */
 export function step(state: EngineState, params: EngineParams, seed: number): EngineState {
     const tick = state.tick + 1;
     const rng = rngForTick(seed, tick);
@@ -58,7 +58,7 @@ export function step(state: EngineState, params: EngineParams, seed: number): En
     const regime = nextRegime(rng, state.regime, params);
     const { driftPerDay, volScale } = params.regimes[regime];
 
-    // 평균이 1인 로그정규 분포. 설정이 없으면 난수를 뽑지 않아 예전 버전의 결과가 그대로 유지된다.
+    // 평균 1인 로그정규 분포. 설정이 없으면 난수를 뽑지 않아 예전 버전 결과 유지
     const spread = params.trendSpread;
     const trendStrength =
         spread !== undefined && regime !== state.regime
@@ -101,9 +101,9 @@ export interface SimulationInput {
 }
 
 export interface SimulationResult {
-    /** prices[i]는 i번째 틱이 끝난 뒤의 가격. prices[0]은 시작 가격 */
+    /** prices[i]: i번째 틱 종료 후 가격, prices[0]: 시작 가격 */
     prices: Float64Array;
-    /** regimes[i]는 i번째 틱의 국면 (REGIMES의 인덱스) */
+    /** regimes[i]: i번째 틱의 국면(REGIMES 인덱스) */
     regimes: Uint8Array;
 }
 

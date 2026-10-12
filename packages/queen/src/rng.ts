@@ -5,10 +5,7 @@ export interface Rng {
     normal(): number;
 }
 
-/**
- * 시드 기반 결정적 난수 생성기(mulberry32).
- * 같은 시드는 항상 같은 수열을 만들어서, 같은 시드의 시장은 언제 다시 계산해도 같은 차트가 나온다.
- */
+/** 시드 기반 결정적 난수 생성기(mulberry32). 같은 시드면 언제 재계산해도 같은 차트 */
 export function createRng(seed: number): Rng {
     let state = seed >>> 0;
 
@@ -20,7 +17,7 @@ export function createRng(seed: number): Rng {
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
 
-    // Box-Muller 변환. 0이 나오면 log(0)이 되므로 (0, 1] 구간을 쓴다.
+    // Box-Muller 변환. log(0) 방지용 (0, 1] 구간
     const normal = (): number => {
         const u = 1 - next();
         const v = next();
@@ -30,11 +27,7 @@ export function createRng(seed: number): Rng {
     return { next, normal };
 }
 
-/**
- * 틱마다 독립된 난수 생성기.
- * 한 틱에서 난수를 몇 개 뽑든 다른 틱의 난수에 영향을 주지 않아서,
- * 엔진 상태만 저장해 두면 어느 틱에서든 같은 결과로 이어서 계산할 수 있다.
- */
+/** 틱마다 독립된 난수 생성기. 다른 틱 난수에 영향이 없어 엔진 상태만으로 어느 틱에서든 이어서 계산 가능 */
 export function rngForTick(seed: number, tick: number): Rng {
     let h = (seed >>> 0) ^ Math.imul(tick >>> 0, 0x9e3779b1);
     h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);

@@ -6,7 +6,7 @@ import { changeClass, duration, signedPercent, signedWon, won } from '../format.
 import { game, useGame } from '../game/store.ts';
 import { TradeRow } from './TradeRow.tsx';
 
-/** 자리를 비웠다 돌아오면 그동안 시장과 계좌에 무슨 일이 있었는지 보여준다. */
+/** 자리 비운 동안 시장과 계좌 변화 요약 */
 export function AwaySummary() {
     const { away } = useGame();
     const dialogRef = useRef<HTMLDialogElement>(null);

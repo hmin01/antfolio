@@ -104,7 +104,7 @@ function Orders() {
     );
 }
 
-/** 거래와 배당을 시간순으로 섞어 보여준다. */
+/** 거래와 배당의 시간순 통합 내역 */
 function Trades() {
     const { account } = useGame();
     const rows = [

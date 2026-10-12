@@ -4,7 +4,7 @@ import { roundPrice, type Market } from './market.ts';
 import { STOCK_BY_ID } from './stocks.ts';
 
 const TICKS_PER_HOUR = TICKS_PER_DAY / 24;
-/** 목록의 흐름 차트 기간과 점 개수. 3시간을 5분 간격으로 나눈다 */
+/** 목록 흐름 차트의 기간과 점 개수(3시간, 5분 간격) */
 const SPARK_HOURS = 3;
 const SPARK_POINTS = 36;
 
@@ -14,21 +14,20 @@ export interface Quote {
     basePrice: number;
     change: number;
     changeRate: number;
-    /** 1시간·3시간 전 가격 대비 등락률 */
+    /** 1시간·3시간 전 대비 등락률 */
     changeRate1h: number;
     changeRate3h: number;
-    /** 3시간 전 가격 */
     price3hAgo: number;
-    /** 최근 24시간의 고가·저가 */
+    /** 최근 24시간 고가·저가 */
     high: number;
     low: number;
-    /** 최근 3시간을 고르게 뽑은 가격. 마지막 값이 현재가 */
+    /** 최근 3시간 균등 표본 가격. 마지막 값이 현재가 */
     spark: number[];
-    /** 시가총액 = 발행 주식 수 × 현재가 */
+    /** 시가총액(발행 주식 수 × 현재가) */
     marketCap: number;
 }
 
-/** 화면에서 쓰는 "24시간 기준" 시세. 시장이 24시간 열려 있어 전일 종가 대신 24시간 전 가격과 비교한다. */
+/** 화면용 24시간 기준 시세. 24시간 장이라 전일 종가 대신 24시간 전 가격과 비교 */
 export function quoteOf(market: Market, stockId: string): Quote {
     const end = market.tick;
     const start = Math.max(market.windowStart, end - TICKS_PER_DAY);

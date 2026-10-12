@@ -7,7 +7,7 @@ interface StockAvatarProps {
 
 const SIZE_CLASS = { sm: 'size-7 text-xs', md: 'size-9 text-sm', lg: 'size-11 text-base' } as const;
 
-/** 로고 대신 종목 이름 첫 글자를 색 원 안에 보여준다. */
+/** 로고 대신 종목 이름 첫 글자를 담은 색 원 */
 export function StockAvatar({ stock, size = 'md' }: StockAvatarProps) {
     return (
         <span
