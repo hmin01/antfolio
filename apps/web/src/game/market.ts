@@ -6,7 +6,7 @@ import {
     TICKS_PER_DAY,
     type EngineParams,
     type EngineState,
-} from '@gaemigul/queen';
+} from '@antfolio/queen';
 
 import { stockParams, STOCKS, type StockDef } from './stocks.ts';
 

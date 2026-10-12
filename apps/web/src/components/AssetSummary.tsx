@@ -1,4 +1,4 @@
-import { TICKS_PER_DAY, tickStartTime } from '@gaemigul/queen';
+import { TICKS_PER_DAY, tickStartTime } from '@antfolio/queen';
 
 import { changeClass, signedPercent, signedWon, won } from '../format.ts';
 import { availableCash, START_CASH, totalValue } from '../game/account.ts';

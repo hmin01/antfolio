@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { TICK_MS, tickStartTime } from '@gaemigul/queen';
+import { TICK_MS, tickStartTime } from '@antfolio/queen';
 
 import { changeClass, signedPercent, won } from '../format.ts';
 import { START_CASH, totalValue } from '../game/account.ts';
@@ -53,7 +53,7 @@ export function Header() {
         <header className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur">
             <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-6 px-4">
                 <a href={HOME_HREF} className="flex items-center gap-1.5 text-lg font-extrabold tracking-tight">
-                    <span aria-hidden>🐜</span>개미굴
+                    <span aria-hidden>🐜</span>Antfolio
                 </a>
                 <nav aria-label="메뉴" className="text-[15px]">
                     <a

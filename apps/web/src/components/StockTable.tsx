@@ -22,7 +22,7 @@ const ROW_GRID =
     'grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[1.5rem_minmax(0,1fr)_6rem_3.75rem_3.75rem_4.75rem_3.25rem_4.5rem]';
 
 /** 종목 화면에 갔다 돌아와도 고른 업종이 남도록 탭을 닫기 전까지만 기억한다 */
-const SECTOR_KEY = 'gaemigul:sector';
+const SECTOR_KEY = 'antfolio:sector';
 function readSector(): string | null {
     try {
         const saved = sessionStorage.getItem(SECTOR_KEY);

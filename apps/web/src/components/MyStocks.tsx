@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { TICK_MS } from '@gaemigul/queen';
+import { TICK_MS } from '@antfolio/queen';
 
 import { changeClass, duration, num, signedPercent, signedWon, won } from '../format.ts';
 import { nextDividend } from '../game/dividends.ts';

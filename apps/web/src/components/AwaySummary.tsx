@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { TICK_MS } from '@gaemigul/queen';
+import { TICK_MS } from '@antfolio/queen';
 
 import { changeClass, duration, signedPercent, signedWon, won } from '../format.ts';
 import { game, useGame } from '../game/store.ts';

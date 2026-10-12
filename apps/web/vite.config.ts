@@ -11,8 +11,8 @@ export default defineConfig({
             registerType: 'autoUpdate',
             includeAssets: ['icon.svg'],
             manifest: {
-                name: '개미굴',
-                short_name: '개미굴',
+                name: 'Antfolio',
+                short_name: 'Antfolio',
                 description: '잠들지 않는 모의 주식 시장',
                 lang: 'ko',
                 display: 'standalone',

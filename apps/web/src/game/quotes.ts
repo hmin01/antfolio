@@ -1,4 +1,4 @@
-import { TICKS_PER_DAY } from '@gaemigul/queen';
+import { TICKS_PER_DAY } from '@antfolio/queen';
 
 import { roundPrice, type Market } from './market.ts';
 import { STOCK_BY_ID } from './stocks.ts';

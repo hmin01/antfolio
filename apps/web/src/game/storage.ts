@@ -3,8 +3,10 @@ import type { DividendPolicy } from './dividends.ts';
 import type { EngineDays, ParamSchedule } from './market.ts';
 
 // 틱 간격이 15초에서 10초로 바뀌면서 예전 저장의 가격 기록은 이어갈 수 없어 새 키를 쓴다.
-const KEY = 'gaemigul:save:v2';
+const KEY = 'antfolio:save:v2';
 const OLD_KEYS = ['gaemigul:save:v1'];
+// 이름이 개미굴(gaemigul)에서 Antfolio로 바뀌어 예전 키의 저장을 옮겨 온다.
+const RENAMED_KEY = 'gaemigul:save:v2';
 
 export interface SaveData {
     version: 2;
@@ -28,6 +30,11 @@ export interface SaveData {
 export function loadSave(): SaveData | null {
     try {
         for (const key of OLD_KEYS) localStorage.removeItem(key);
+        const renamed = localStorage.getItem(RENAMED_KEY);
+        if (renamed) {
+            if (!localStorage.getItem(KEY)) localStorage.setItem(KEY, renamed);
+            localStorage.removeItem(RENAMED_KEY);
+        }
         const raw = localStorage.getItem(KEY);
         if (!raw) return null;
         const data = JSON.parse(raw) as SaveData;

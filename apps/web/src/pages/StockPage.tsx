@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { TICK_MS } from '@gaemigul/queen';
+import { TICK_MS } from '@antfolio/queen';
 
 import { OrderPanel } from '../components/OrderPanel.tsx';
 import { Panel } from '../components/Panel.tsx';
@@ -227,9 +227,9 @@ export function StockPage({ stockId }: { stockId: string }) {
 
     useEffect(() => {
         window.scrollTo(0, 0);
-        document.title = `${stock.name} · 개미굴`;
+        document.title = `${stock.name} · Antfolio`;
         return () => {
-            document.title = '개미굴';
+            document.title = 'Antfolio';
         };
     }, [stock.name]);
 

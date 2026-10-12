@@ -11,7 +11,7 @@ import {
     type UTCTimestamp,
 } from 'lightweight-charts';
 
-import { tickStartTime, TIMEFRAMES, toCandles, type Candle, type TimeframeId } from '@gaemigul/queen';
+import { tickStartTime, TIMEFRAMES, toCandles, type Candle, type TimeframeId } from '@antfolio/queen';
 
 import { dateTime, num } from '../format.ts';
 import { roundPrice } from '../game/market.ts';

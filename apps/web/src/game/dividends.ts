@@ -1,4 +1,4 @@
-import { TICK_MS, TICKS_PER_DAY } from '@gaemigul/queen';
+import { TICK_MS, TICKS_PER_DAY } from '@antfolio/queen';
 
 import type { Account, DividendPayout, Holding } from './account.ts';
 import { STOCK_BY_ID, STOCKS } from './stocks.ts';

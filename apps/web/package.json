@@ -1,5 +1,5 @@
 {
-  "name": "@gaemigul/web",
+  "name": "@antfolio/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@gaemigul/queen": "workspace:*",
+    "@antfolio/queen": "workspace:*",
     "lightweight-charts": "^5.2.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"

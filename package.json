@@ -1,10 +1,10 @@
 {
-  "name": "gaemigul",
+  "name": "antfolio",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.9.1",
   "scripts": {
-    "dev:web": "pnpm --filter @gaemigul/web dev",
+    "dev:web": "pnpm --filter @antfolio/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "oxlint",

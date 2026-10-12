@@ -1,4 +1,4 @@
-import { REGIMES, type EngineParams } from '@gaemigul/queen';
+import { REGIMES, type EngineParams } from '@antfolio/queen';
 
 export interface StockDef {
     id: string;

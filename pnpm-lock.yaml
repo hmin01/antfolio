@@ -184,7 +184,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@gaemigul/queen':
+      '@antfolio/queen':
         specifier: workspace:*
         version: link:../../packages/queen
       lightweight-charts:

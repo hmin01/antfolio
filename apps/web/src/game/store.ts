@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-import { LATEST_VERSION, PARAM_VERSIONS, TICK_MS, tickIndexAt, TICKS_PER_DAY, tickStartTime } from '@gaemigul/queen';
+import { LATEST_VERSION, PARAM_VERSIONS, TICK_MS, tickIndexAt, TICKS_PER_DAY, tickStartTime } from '@antfolio/queen';
 
 import { num } from '../format.ts';
 import {

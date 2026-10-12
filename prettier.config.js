@@ -8,8 +8,8 @@ export default {
     // prettier-plugin-tailwindcss는 다른 플러그인보다 뒤에 와야 한다.
     plugins: ['@ianvs/prettier-plugin-sort-imports', 'prettier-plugin-tailwindcss'],
 
-    // import 순서: React → 외부 패키지 → 워크스페이스 패키지(@gaemigul) → 상대 경로
-    importOrder: ['^react(-dom)?(/.*)?$', '<THIRD_PARTY_MODULES>', '', '^@gaemigul/(.*)$', '', '^[.]'],
+    // import 순서: React → 외부 패키지 → 워크스페이스 패키지(@antfolio) → 상대 경로
+    importOrder: ['^react(-dom)?(/.*)?$', '<THIRD_PARTY_MODULES>', '', '^@antfolio/(.*)$', '', '^[.]'],
     importOrderTypeScriptVersion: '5.0.0',
 
     // Tailwind v4는 클래스 순서를 알기 위해 CSS 진입점이 필요하다. 두 앱 모두 기본 테마만 쓴다.
